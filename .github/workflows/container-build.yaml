@@ -143,7 +143,7 @@ jobs:
             buildah manifest push --all --format v2s2 "${MANIFEST}" "docker://${IMAGE}:latest"
           fi
 
-          DIGEST=$(buildah manifest inspect "${MANIFEST}" | jq -r '.digest')
+          DIGEST=$(buildah manifest inspect "docker://${IMAGE}:${MANIFEST}" | jq -r '.digest')
           echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
 
       - name: Setup cosign
