@@ -156,10 +156,12 @@ jobs:
 
       - name: Build summary
         run: |
-          echo "## Container image: ${{ matrix.variant }}" >> "${GITHUB_STEP_SUMMARY}"
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "| Field | Value |" >> "${GITHUB_STEP_SUMMARY}"
-          echo "|---|---|" >> "${GITHUB_STEP_SUMMARY}"
-          echo "| Image | \`${REGISTRY}/${{ github.repository }}\` |" >> "${GITHUB_STEP_SUMMARY}"
-          echo "| Tags | \`v${{ needs.detect.outputs.version }}-${{ matrix.variant }}, latest-${{ matrix.variant }}\` |" >> "${GITHUB_STEP_SUMMARY}"
-          echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |" >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "## Container image: ${{ matrix.variant }}"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Image | \`${REGISTRY}/${{ github.repository }}\` |"
+            echo "| Tags | \`v${{ needs.detect.outputs.version }}-${{ matrix.variant }}, latest-${{ matrix.variant }}\` |"
+            echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
