@@ -104,23 +104,23 @@ buildah config --label "org.opencontainers.image.vendor=aardbol" "${CTR}"
 buildah config --label "org.opencontainers.image.licenses=MIT" "${CTR}"
 buildah config --label "org.opencontainers.image.base.name=docker.io/${BASE_IMAGE}" "${CTR}"
 
+# Verify binaries before setting entrypoint
+echo "Verifying image..."
+buildah run "${CTR}" -- tini --version >/dev/null || {
+  echo "ERROR: tini not callable in image" >&2
+  exit 1
+}
+buildah run "${CTR}" -- opencode --version >/dev/null || {
+  echo "ERROR: opencode binary not callable in image" >&2
+  exit 1
+}
+echo "Image verification passed"
+
 buildah config --entrypoint '["tini", "--", "/entrypoint.sh"]' "${CTR}"
 buildah config --cmd '[]' "${CTR}"
 
 # Commit and clean up
 buildah commit --format docker "${CTR}" "${IMAGE}:${IMAGE_TAG}"
 buildah rm "${CTR}"
-
-# Verify image
-echo "Verifying image..."
-buildah run "${IMAGE}:${IMAGE_TAG}" -- tini --version >/dev/null || {
-  echo "ERROR: tini not callable in image" >&2
-  exit 1
-}
-buildah run "${IMAGE}:${IMAGE_TAG}" -- opencode --version >/dev/null || {
-  echo "ERROR: opencode binary not callable in image" >&2
-  exit 1
-}
-echo "Image verification passed"
 
 echo "Built ${IMAGE}:${IMAGE_TAG}"
