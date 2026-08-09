@@ -3,7 +3,7 @@ ARG OPENCODE_SHA256_AMD64=
 ARG OPENCODE_SHA256_ARM64=
 ARG TARGETARCH
 
-FROM docker.io/alpine:3.21 AS builder
+FROM docker.io/alpine:3.23 AS builder
 ARG OPENCODE_VERSION
 ARG OPENCODE_SHA256_AMD64
 ARG OPENCODE_SHA256_ARM64
@@ -28,7 +28,7 @@ RUN ARCH=$(case "${TARGETARCH}" in \
     find . -maxdepth 1 -type f -executable -name 'opencode*' -exec cp {} /usr/local/bin/opencode \; && \
     chmod 0755 /usr/local/bin/opencode
 
-FROM docker.io/alpine:3.21
+FROM docker.io/alpine:3.23
 
 RUN apk add --no-cache \
       bash \
@@ -50,7 +50,7 @@ RUN apk add --no-cache \
 
 COPY --from=builder /usr/local/bin/opencode /usr/local/bin/opencode
 COPY entrypoint.sh /entrypoint.sh
-COPY opencode.json /home/opencode/opencode.json
+COPY opencode.jsonc /home/opencode/opencode.jsonc
 RUN chmod +x /entrypoint.sh && \
     chown -R opencode:opencode /home/opencode
 

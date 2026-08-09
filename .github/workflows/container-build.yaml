@@ -13,14 +13,12 @@ on:
 env:
   REGISTRY: ghcr.io
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-
 jobs:
   detect:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
     outputs:
       version: ${{ steps.detect.outputs.version }}
       should_build: ${{ steps.detect.outputs.should_build }}
@@ -58,19 +56,21 @@ jobs:
             echo "should_build=true" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Compute checksums
+      - name: Extract checksums from release
         id: checksums
         if: steps.detect.outputs.should_build == 'true'
         env:
           VERSION: ${{ steps.detect.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          fetch_sha() {
-            curl -fsSL "$1" | sha256sum | awk '{print $1}'
-          }
-          echo "sha256_amd64_alpine=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-x64-musl.tar.gz")" >> "${GITHUB_OUTPUT}"
-          echo "sha256_arm64_alpine=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz")" >> "${GITHUB_OUTPUT}"
-          echo "sha256_amd64_debian=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-x64.tar.gz")" >> "${GITHUB_OUTPUT}"
-          echo "sha256_arm64_debian=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64.tar.gz")" >> "${GITHUB_OUTPUT}"
+          RELEASE=$(gh api repos/anomalyco/opencode/releases/tags/v"${VERSION}")
+          sha() { echo "${RELEASE}" | jq -r --arg n "$1" '.assets[] | select(.name == $n) | .digest | sub("^sha256:"; "")'; }
+          {
+            echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
+            echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
+            echo "sha256_amd64_debian=$(sha opencode-linux-x64.tar.gz)"
+            echo "sha256_arm64_debian=$(sha opencode-linux-arm64.tar.gz)"
+          } >> "${GITHUB_OUTPUT}"
 
   build:
     needs: detect
@@ -80,6 +80,10 @@ jobs:
       matrix:
         variant: [alpine, debian]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

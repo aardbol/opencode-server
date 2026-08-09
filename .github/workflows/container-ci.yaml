@@ -5,16 +5,14 @@ on:
     paths:
       - Containerfile.*
       - entrypoint.sh
-      - opencode.json
-      - .github/workflows/container-ci.yaml
-      - .github/workflows/container-build.yaml
-
-permissions:
-  contents: read
+      - opencode.jsonc
+      - .github/workflows/container-*.yaml
 
 jobs:
   lint:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install actionlint
@@ -25,23 +23,28 @@ jobs:
 
   compute-checksums:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       sha256_amd64_alpine: ${{ steps.checksums.outputs.sha256_amd64_alpine }}
       sha256_arm64_alpine: ${{ steps.checksums.outputs.sha256_arm64_alpine }}
       sha256_amd64_debian: ${{ steps.checksums.outputs.sha256_amd64_debian }}
       sha256_arm64_debian: ${{ steps.checksums.outputs.sha256_arm64_debian }}
     steps:
-      - name: Compute checksums
+      - name: Extract checksums from release
         id: checksums
+        env:
+          VERSION: "1.18.15"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          fetch_sha() {
-            curl -fsSL "$1" | sha256sum | awk '{print $1}'
-          }
-          VERSION="1.18.15"
-          echo "sha256_amd64_alpine=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-x64-musl.tar.gz")" >> "${GITHUB_OUTPUT}"
-          echo "sha256_arm64_alpine=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz")" >> "${GITHUB_OUTPUT}"
-          echo "sha256_amd64_debian=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-x64.tar.gz")" >> "${GITHUB_OUTPUT}"
-          echo "sha256_arm64_debian=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64.tar.gz")" >> "${GITHUB_OUTPUT}"
+          RELEASE=$(gh api repos/anomalyco/opencode/releases/tags/v"${VERSION}")
+          sha() { echo "${RELEASE}" | jq -r --arg n "$1" '.assets[] | select(.name == $n) | .digest | sub("^sha256:"; "")'; }
+          {
+            echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
+            echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
+            echo "sha256_amd64_debian=$(sha opencode-linux-x64.tar.gz)"
+            echo "sha256_arm64_debian=$(sha opencode-linux-arm64.tar.gz)"
+          } >> "${GITHUB_OUTPUT}"
 
   build:
     needs: [lint, compute-checksums]
@@ -51,6 +54,9 @@ jobs:
         variant: [alpine, debian]
         platform: [linux/amd64, linux/arm64]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

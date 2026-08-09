@@ -5,13 +5,12 @@ on:
     workflows: [Container Build]
     types: [completed]
 
-permissions:
-  contents: read
-  security-events: write
-
 jobs:
   scan:
     if: github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       matrix:
         variant: [alpine, debian]
@@ -32,6 +31,6 @@ jobs:
           output: trivy-results-${{ matrix.variant }}.sarif
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e # v3
+        uses: github/codeql-action/upload-sarif@404bd795832c959ffb8efae2b1b4cc1aafc82058 # v3.37.6
         with:
           sarif_file: trivy-results-${{ matrix.variant }}.sarif
