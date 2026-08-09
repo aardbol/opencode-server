@@ -39,17 +39,9 @@ jobs:
     steps:
       - name: Extract checksums from release
         id: checksums
-        env:
-          VERSION: "1.18.15"
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          sha() { gh release view "v${VERSION}" --repo anomalyco/opencode --json assets --jq ".assets[] | select(.name == \"$1\") | .digest | ltrimstr(\"sha256:\")"; }
-          {
-            echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
-            echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
-            echo "sha256_amd64_debian=$(sha opencode-linux-x64.tar.gz)"
-            echo "sha256_arm64_debian=$(sha opencode-linux-arm64.tar.gz)"
-          } >> "${GITHUB_OUTPUT}"
+        uses: ./.github/actions/extract-checksums
+        with:
+          version: "1.18.15"
 
   build:
     needs: [lint, compute-checksums]

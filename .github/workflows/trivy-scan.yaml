@@ -26,8 +26,7 @@ jobs:
         variant: [alpine, debian]
     runs-on: ubuntu-24.04
     steps:
-      - name: Log in to GHCR
-        run: echo '${{ secrets.GITHUB_TOKEN }}' | buildah login --compat-auth-file ~/.docker/config.json -u '${{ github.actor }}' --password-stdin '${{ env.REGISTRY }}'
+      - uses: ./.github/actions/ghcr-login
 
       - name: Scan ${{ matrix.variant }} image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

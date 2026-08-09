@@ -10,7 +10,7 @@ set -euo pipefail
 
 OPENCODE_VERSION="${OPENCODE_VERSION:-1.18.15}"
 TARGETARCH="${TARGETARCH:-amd64}"
-IMAGE_NAME="${IMAGE_NAME:-opencode-${VARIANT}}"
+IMAGE="${IMAGE:-opencode-${VARIANT}}"
 IMAGE_TAG="${IMAGE_TAG:-${OPENCODE_VERSION}}"
 
 # Validate required env vars
@@ -43,7 +43,7 @@ if [ -z "${OPENCODE_SHA256}" ]; then
     --jq ".assets[] | select(.name == '${BINARY_TARBALL}') | .digest | ltrimstr('sha256:')")
 fi
 
-echo "Building ${IMAGE_NAME}:${IMAGE_TAG} (base=${BASE_IMAGE}, arch=${TARGETARCH}, version=${OPENCODE_VERSION}, port=4096)"
+echo "Building ${IMAGE}:${IMAGE_TAG} (base=${BASE_IMAGE}, arch=${TARGETARCH}, version=${OPENCODE_VERSION}, port=4096)"
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "${TMPDIR}"' EXIT
@@ -108,19 +108,19 @@ buildah config --entrypoint '["tini", "--", "/entrypoint.sh"]' "${CTR}"
 buildah config --cmd '[]' "${CTR}"
 
 # Commit and clean up
-buildah commit --format docker "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
+buildah commit --format docker "${CTR}" "${IMAGE}:${IMAGE_TAG}"
 buildah rm "${CTR}"
 
 # Verify image
 echo "Verifying image..."
-buildah run --entrypoint '[]' "${IMAGE_NAME}:${IMAGE_TAG}" tini --version >/dev/null || {
+buildah run --entrypoint '[]' "${IMAGE}:${IMAGE_TAG}" tini --version >/dev/null || {
   echo "ERROR: tini not callable in image" >&2
   exit 1
 }
-buildah run --entrypoint '[]' "${IMAGE_NAME}:${IMAGE_TAG}" opencode --version >/dev/null || {
+buildah run --entrypoint '[]' "${IMAGE}:${IMAGE_TAG}" opencode --version >/dev/null || {
   echo "ERROR: opencode binary not callable in image" >&2
   exit 1
 }
 echo "Image verification passed"
 
-echo "Built ${IMAGE_NAME}:${IMAGE_TAG}"
+echo "Built ${IMAGE}:${IMAGE_TAG}"

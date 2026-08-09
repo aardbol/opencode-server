@@ -1,0 +1,39 @@
+name: Extract OpenCode Checksums
+description: Extract SHA256 checksums for OpenCode release assets
+
+inputs:
+  version:
+    description: OpenCode version (e.g., 1.18.15)
+    required: true
+
+outputs:
+  sha256_amd64_alpine:
+    description: SHA256 for amd64 Alpine (musl)
+    value: ${{ steps.checksums.outputs.sha256_amd64_alpine }}
+  sha256_arm64_alpine:
+    description: SHA256 for arm64 Alpine (musl)
+    value: ${{ steps.checksums.outputs.sha256_arm64_alpine }}
+  sha256_amd64_debian:
+    description: SHA256 for amd64 Debian
+    value: ${{ steps.checksums.outputs.sha256_amd64_debian }}
+  sha256_arm64_debian:
+    description: SHA256 for arm64 Debian
+    value: ${{ steps.checksums.outputs.sha256_arm64_debian }}
+
+runs:
+  using: composite
+  steps:
+    - name: Extract checksums from release
+      id: checksums
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ env.GH_TOKEN || github.token }}
+      run: |
+        sha() { gh release view "v${VERSION}" --repo anomalyco/opencode --json assets --jq ".assets[] | select(.name == \"$1\") | .digest | ltrimstr(\"sha256:\")"; }
+        {
+          echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
+          echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
+          echo "sha256_amd64_debian=$(sha opencode-linux-x64.tar.gz)"
+          echo "sha256_arm64_debian=$(sha opencode-linux-arm64.tar.gz)"
+        } >> "${GITHUB_OUTPUT}"
