@@ -61,6 +61,7 @@ RUN chmod +x /entrypoint.sh && \
 
 USER opencode
 WORKDIR /home/opencode
+VOLUME /home/opencode
 
 ENV OPENCODE_PORT=4096
 EXPOSE 4096

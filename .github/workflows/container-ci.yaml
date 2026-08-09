@@ -7,6 +7,7 @@ on:
       - entrypoint.sh
       - opencode.json
       - .github/workflows/container-ci.yaml
+      - .github/workflows/container-build.yaml
 
 permissions:
   contents: read
@@ -22,8 +23,28 @@ jobs:
       - name: Run actionlint
         run: ./actionlint -color
 
+  compute-checksums:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha256_amd64_alpine: ${{ steps.checksums.outputs.sha256_amd64_alpine }}
+      sha256_arm64_alpine: ${{ steps.checksums.outputs.sha256_arm64_alpine }}
+      sha256_amd64_debian: ${{ steps.checksums.outputs.sha256_amd64_debian }}
+      sha256_arm64_debian: ${{ steps.checksums.outputs.sha256_arm64_debian }}
+    steps:
+      - name: Compute checksums
+        id: checksums
+        run: |
+          fetch_sha() {
+            curl -fsSL "$1" | sha256sum | awk '{print $1}'
+          }
+          VERSION="1.18.15"
+          echo "sha256_amd64_alpine=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-x64-musl.tar.gz")" >> "${GITHUB_OUTPUT}"
+          echo "sha256_arm64_alpine=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64-musl.tar.gz")" >> "${GITHUB_OUTPUT}"
+          echo "sha256_amd64_debian=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-x64.tar.gz")" >> "${GITHUB_OUTPUT}"
+          echo "sha256_arm64_debian=$(fetch_sha "https://github.com/anomalyco/opencode/releases/download/v${VERSION}/opencode-linux-arm64.tar.gz")" >> "${GITHUB_OUTPUT}"
+
   build:
-    needs: lint
+    needs: [lint, compute-checksums]
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +57,25 @@ jobs:
       - name: Enable cross-arch emulation
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
+      - name: Set build-args
+        id: args
+        run: |
+          VARIANT="${{ matrix.variant }}"
+          if [ "${VARIANT}" = "alpine" ]; then
+            AMD64="${{ needs.compute-checksums.outputs.sha256_amd64_alpine }}"
+            ARM64="${{ needs.compute-checksums.outputs.sha256_arm64_alpine }}"
+          else
+            AMD64="${{ needs.compute-checksums.outputs.sha256_amd64_debian }}"
+            ARM64="${{ needs.compute-checksums.outputs.sha256_arm64_debian }}"
+          fi
+          {
+            echo 'build_args<<EOF'
+            echo "OPENCODE_VERSION=1.18.15"
+            echo "OPENCODE_SHA256_AMD64=${AMD64}"
+            echo "OPENCODE_SHA256_ARM64=${ARM64}"
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Build ${{ matrix.variant }} for ${{ matrix.platform }}
         uses: aardbol-actions/buildah-build@414c4e19729579733d4ed2c16cbb75ea25c7e580 # v3.1.0
         with:
@@ -43,6 +83,5 @@ jobs:
           tags: ci-${{ github.sha }}
           containerfiles: Containerfile.${{ matrix.variant }}
           platforms: ${{ matrix.platform }}
-          build-args: |
-            OPENCODE_VERSION=1.18.15
+          build-args: ${{ steps.args.outputs.build_args }}
           extra-args: --pull=always
