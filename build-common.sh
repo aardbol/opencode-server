@@ -113,4 +113,16 @@ buildah config --cmd '[]' "${CTR}"
 buildah commit --format docker "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
 buildah rm "${CTR}"
 
+# Verify image
+echo "Verifying image..."
+buildah run --entrypoint '[]' "${IMAGE_NAME}:${IMAGE_TAG}" tini --version >/dev/null || {
+  echo "ERROR: tini not callable in image" >&2
+  exit 1
+}
+buildah run --entrypoint '[]' "${IMAGE_NAME}:${IMAGE_TAG}" opencode --version >/dev/null || {
+  echo "ERROR: opencode binary not callable in image" >&2
+  exit 1
+}
+echo "Image verification passed"
+
 echo "Built ${IMAGE_NAME}:${IMAGE_TAG}"
