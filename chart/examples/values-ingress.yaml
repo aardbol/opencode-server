@@ -1,0 +1,13 @@
+ingress:
+  enabled: true
+  className: nginx
+  certManagerIssuer: letsencrypt-prod
+  hosts:
+    - host: opencode.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - opencode.example.com
+      secretName: opencode-tls

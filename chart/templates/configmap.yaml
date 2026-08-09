@@ -1,0 +1,11 @@
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opencode.configName" . }}
+  labels:
+    {{- include "opencode.labels" . | nindent 4 }}
+data:
+  opencode.jsonc: |
+    {{- .Values.config.content | toJson | nindent 4 }}
+{{- end }}

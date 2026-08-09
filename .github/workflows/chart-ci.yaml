@@ -1,0 +1,45 @@
+name: chart-ci
+
+on:
+  pull_request:
+    paths:
+      - "chart/**"
+      - "artifacthub-repo.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "chart/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: helm lint + template
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b5b231b50f6defcf02df65a4535f2026d7b5a768 # v4.3.0
+        with:
+          version: v3.14.4
+
+      - name: Helm lint
+        run: helm lint chart/
+
+      - name: Helm template (default)
+        run: helm template opencode chart/
+
+      - name: Helm template (ingress example)
+        run: helm template opencode chart/ -f chart/examples/values-ingress.yaml
+
+      - name: Helm template (persistence example)
+        run: helm template opencode chart/ -f chart/examples/values-persistence.yaml
+
+      - name: Validate values schema
+        run: helm template opencode chart/ --validate

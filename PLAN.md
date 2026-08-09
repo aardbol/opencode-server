@@ -1,7 +1,9 @@
 # Plan: Hardened OpenCode Server (Image + Helm Chart + ArtifactHub)
 
 **Date:** 2026-08-09
-**Status:** Proposed — awaiting approval of key decisions
+**Status:** Container image — done. Helm chart — implemented on branch
+`feat/helm-chart` (spec `docs/superpowers/specs/2026-08-10-helm-chart-design.md`,
+plan `docs/superpowers/plans/2026-08-10-helm-chart.md`). Awaiting PR review.
 
 ## Goal
 
