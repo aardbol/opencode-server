@@ -14,7 +14,9 @@ Multi-arch (`linux/amd64` + `linux/arm64`) images pushed to GHCR:
 | `ghcr.io/aardbol/opencode-server:latest-alpine` | Alpine 3.23 (musl) | Explicit Alpine |
 | `ghcr.io/aardbol/opencode-server:latest-debian` | Debian 13.6-slim (glibc) | Broader tool compat |
 
-Versioned tags: `v1.18.15`, `v1.18.15-alpine`, `v1.18.15-debian`
+Versioned tags (immutable):
+- First build: `v1.18.15-alpine`, `v1.18.15-debian`
+- Rebuilds: `v1.18.15-2-alpine`, `v1.18.15-3-alpine` (container changes, same opencode version)
 
 ## Quick start
 
