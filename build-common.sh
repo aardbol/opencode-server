@@ -9,7 +9,6 @@ set -euo pipefail
 # BINARY_TARBALL is derived from VARIANT + ARCH in this script
 
 OPENCODE_VERSION="${OPENCODE_VERSION:-1.18.15}"
-OPENCODE_PORT="${OPENCODE_PORT:-4096}"
 TARGETARCH="${TARGETARCH:-amd64}"
 IMAGE_NAME="${IMAGE_NAME:-opencode-${VARIANT}}"
 IMAGE_TAG="${IMAGE_TAG:-${OPENCODE_VERSION}}"
@@ -44,7 +43,7 @@ if [ -z "${OPENCODE_SHA256}" ]; then
     --jq ".assets[] | select(.name == '${BINARY_TARBALL}') | .digest | ltrimstr('sha256:')")
 fi
 
-echo "Building ${IMAGE_NAME}:${IMAGE_TAG} (base=${BASE_IMAGE}, arch=${TARGETARCH}, version=${OPENCODE_VERSION}, port=${OPENCODE_PORT})"
+echo "Building ${IMAGE_NAME}:${IMAGE_TAG} (base=${BASE_IMAGE}, arch=${TARGETARCH}, version=${OPENCODE_VERSION}, port=4096)"
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "${TMPDIR}"' EXIT
@@ -86,11 +85,10 @@ buildah copy --chown opencode:opencode "${CTR}" opencode.jsonc /home/opencode/op
 # Configure container
 buildah config --user opencode "${CTR}"
 buildah config --workingdir /home/opencode "${CTR}"
-buildah config --env OPENCODE_PORT="${OPENCODE_PORT}" "${CTR}"
-buildah config --port "${OPENCODE_PORT}" "${CTR}"
+buildah config --port "4096" "${CTR}"
 buildah config --volume /home/opencode "${CTR}"
 
-buildah config --healthcheck "CMD curl -fsS http://localhost:${OPENCODE_PORT}/global/health || exit 1" "${CTR}" 2>/dev/null
+buildah config --healthcheck "CMD curl -fsS http://localhost:4096/global/health || exit 1" "${CTR}" 2>/dev/null
 buildah config --healthcheck-interval 30s "${CTR}" 2>/dev/null
 buildah config --healthcheck-timeout 5s "${CTR}" 2>/dev/null
 buildah config --healthcheck-start-period 10s "${CTR}" 2>/dev/null

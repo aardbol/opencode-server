@@ -30,7 +30,6 @@ The server listens on port 4096. Health check: `GET /global/health`
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENCODE_PORT` | `4096` | Server port |
 | `OPENCODE_CORS` | _(none)_ | CORS allowed origins |
 
 Mount your own config to override:
