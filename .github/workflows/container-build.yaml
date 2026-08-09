@@ -148,6 +148,19 @@ jobs:
           DIGEST=$(oras resolve "${IMAGE}:${MANIFEST}")
           echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
 
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ github.repository }}:v${{ needs.detect.outputs.version }}-${{ matrix.variant }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Attach SBOM
+        run: |
+          IMAGE="${REGISTRY}/${{ github.repository }}"
+          DIGEST="${{ steps.manifest.outputs.digest }}"
+          oras attach "${IMAGE}@${DIGEST}" sbom.spdx.json:application/spdx+json
+
       - name: Setup cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
@@ -166,4 +179,5 @@ jobs:
             echo "| Image | \`${REGISTRY}/${{ github.repository }}\` |"
             echo "| Tags | \`v${{ needs.detect.outputs.version }}-${{ matrix.variant }}, latest-${{ matrix.variant }}\` |"
             echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |"
+            echo "| SBOM | SPDX JSON attached |"
           } >> "${GITHUB_STEP_SUMMARY}"
