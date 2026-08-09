@@ -113,11 +113,11 @@ buildah rm "${CTR}"
 
 # Verify image
 echo "Verifying image..."
-buildah run --entrypoint '[]' "${IMAGE}:${IMAGE_TAG}" tini --version >/dev/null || {
+buildah run "${IMAGE}:${IMAGE_TAG}" -- tini --version >/dev/null || {
   echo "ERROR: tini not callable in image" >&2
   exit 1
 }
-buildah run --entrypoint '[]' "${IMAGE}:${IMAGE_TAG}" opencode --version >/dev/null || {
+buildah run "${IMAGE}:${IMAGE_TAG}" -- opencode --version >/dev/null || {
   echo "ERROR: opencode binary not callable in image" >&2
   exit 1
 }
