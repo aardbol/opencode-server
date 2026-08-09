@@ -8,6 +8,13 @@ on:
       - opencode.jsonc
       - .github/workflows/container-*.yaml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-24.04
@@ -23,8 +30,6 @@ jobs:
 
   compute-checksums:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
     outputs:
       sha256_amd64_alpine: ${{ steps.checksums.outputs.sha256_amd64_alpine }}
       sha256_arm64_alpine: ${{ steps.checksums.outputs.sha256_arm64_alpine }}
@@ -37,8 +42,7 @@ jobs:
           VERSION: "1.18.15"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE=$(gh api repos/anomalyco/opencode/releases/tags/v"${VERSION}")
-          sha() { echo "${RELEASE}" | jq -r --arg n "$1" '.assets[] | select(.name == $n) | .digest | sub("^sha256:"; "")'; }
+          sha() { gh release view "v${VERSION}" --repo anomalyco/opencode --json assets --jq ".assets[] | select(.name == \"$1\") | .digest | ltrimstr(\"sha256:\")"; }
           {
             echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
             echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
