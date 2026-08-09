@@ -1,0 +1,66 @@
+ARG OPENCODE_VERSION=1.18.15
+ARG OPENCODE_SHA256_AMD64=
+ARG OPENCODE_SHA256_ARM64=
+ARG TARGETARCH
+
+FROM docker.io/alpine:3.21 AS builder
+ARG OPENCODE_VERSION
+ARG OPENCODE_SHA256_AMD64
+ARG OPENCODE_SHA256_ARM64
+ARG TARGETARCH
+
+RUN apk add --no-cache curl
+
+WORKDIR /tmp
+RUN ARCH=$(case "${TARGETARCH}" in \
+      amd64) echo "x64" ;; \
+      arm64) echo "arm64" ;; \
+      *) echo "unsupported: ${TARGETARCH}" && exit 1 ;; \
+    esac) && \
+    EXPECTED=$(case "${TARGETARCH}" in \
+      amd64) echo "${OPENCODE_SHA256_AMD64}" ;; \
+      arm64) echo "${OPENCODE_SHA256_ARM64}" ;; \
+    esac) && \
+    curl -fsSL -o opencode.tar.gz \
+      "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-${ARCH}-musl.tar.gz" && \
+    echo "${EXPECTED}  opencode.tar.gz" | sha256sum -c - && \
+    tar -xzf opencode.tar.gz && \
+    find . -maxdepth 1 -type f -executable -name 'opencode*' -exec cp {} /usr/local/bin/opencode \; && \
+    chmod 0755 /usr/local/bin/opencode
+
+FROM docker.io/alpine:3.21
+
+RUN apk add --no-cache \
+      bash \
+      build-base \
+      ca-certificates \
+      curl \
+      git \
+      jq \
+      openssh-client \
+      pkgconf \
+      python3 \
+      ripgrep \
+      tini \
+      unzip \
+      xz \
+      zip && \
+    addgroup -g 10001 -S opencode && \
+    adduser -u 10001 -S opencode -G opencode -h /home/opencode -s /bin/bash
+
+COPY --from=builder /usr/local/bin/opencode /usr/local/bin/opencode
+COPY entrypoint.sh /entrypoint.sh
+COPY opencode.json /home/opencode/opencode.json
+RUN chmod +x /entrypoint.sh && \
+    chown -R opencode:opencode /home/opencode
+
+USER opencode
+WORKDIR /home/opencode
+
+ENV OPENCODE_PORT=4096
+EXPOSE 4096
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -fsS "http://localhost:${OPENCODE_PORT}/global/health" || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
