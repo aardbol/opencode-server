@@ -2,7 +2,7 @@ name: Container Build
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 0 * * *" # Daily at midnight UTC (poll for new opencode releases)
   workflow_dispatch:
     inputs:
       opencode_version:
