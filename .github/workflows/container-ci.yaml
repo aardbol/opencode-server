@@ -1,0 +1,76 @@
+name: Container CI
+
+on:
+  pull_request:
+    paths:
+      - build-*.sh
+      - entrypoint.sh
+      - opencode.jsonc
+      - .github/workflows/container-*.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install actionlint
+        run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash)
+
+      - name: Run actionlint
+        run: ./actionlint -color
+
+  compute-checksums:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha256_amd64_alpine: ${{ steps.checksums.outputs.sha256_amd64_alpine }}
+      sha256_arm64_alpine: ${{ steps.checksums.outputs.sha256_arm64_alpine }}
+      sha256_amd64_debian: ${{ steps.checksums.outputs.sha256_amd64_debian }}
+      sha256_arm64_debian: ${{ steps.checksums.outputs.sha256_arm64_debian }}
+    steps:
+      - name: Extract checksums from release
+        id: checksums
+        env:
+          VERSION: "1.18.15"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sha() { gh release view "v${VERSION}" --repo anomalyco/opencode --json assets --jq ".assets[] | select(.name == \"$1\") | .digest | ltrimstr(\"sha256:\")"; }
+          {
+            echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
+            echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
+            echo "sha256_amd64_debian=$(sha opencode-linux-x64.tar.gz)"
+            echo "sha256_arm64_debian=$(sha opencode-linux-arm64.tar.gz)"
+          } >> "${GITHUB_OUTPUT}"
+
+  build:
+    needs: [lint, compute-checksums]
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [alpine, debian]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build ${{ matrix.variant }}
+        env:
+          OPENCODE_VERSION: "1.18.15"
+        run: |
+          VARIANT="${{ matrix.variant }}"
+          if [ "${VARIANT}" = "alpine" ]; then
+            export OPENCODE_SHA256_AMD64="${{ needs.compute-checksums.outputs.sha256_amd64_alpine }}"
+            export OPENCODE_SHA256_ARM64="${{ needs.compute-checksums.outputs.sha256_arm64_alpine }}"
+          else
+            export OPENCODE_SHA256_AMD64="${{ needs.compute-checksums.outputs.sha256_amd64_debian }}"
+            export OPENCODE_SHA256_ARM64="${{ needs.compute-checksums.outputs.sha256_arm64_debian }}"
+          fi
+          ./build-${VARIANT}.sh

@@ -1,0 +1,167 @@
+name: Container Build
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Daily at midnight UTC (poll for new opencode releases)
+  workflow_dispatch:
+    inputs:
+      opencode_version:
+        description: "OpenCode version to build (e.g. 1.18.15)"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      should_build: ${{ steps.detect.outputs.should_build }}
+      sha256_amd64_alpine: ${{ steps.checksums.outputs.sha256_amd64_alpine }}
+      sha256_arm64_alpine: ${{ steps.checksums.outputs.sha256_arm64_alpine }}
+      sha256_amd64_debian: ${{ steps.checksums.outputs.sha256_amd64_debian }}
+      sha256_arm64_debian: ${{ steps.checksums.outputs.sha256_arm64_debian }}
+    steps:
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+
+      - name: Log in to GHCR
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | buildah login -u '${{ github.actor }}' --password-stdin '${{ env.REGISTRY }}'
+
+      - name: Detect version
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ inputs.opencode_version }}" ]; then
+            VERSION="${{ inputs.opencode_version }}"
+          else
+            VERSION=$(gh release view --repo anomalyco/opencode --json tagName -q .tagName | sed 's/^v//')
+          fi
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+          if oras resolve "${REGISTRY}/${{ github.repository }}:v${VERSION}-alpine" > /dev/null 2>&1; then
+            echo "Image v${VERSION}-alpine already exists in GHCR, skipping build."
+            echo "should_build=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "New version v${VERSION} detected, building."
+            echo "should_build=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Extract checksums from release
+        id: checksums
+        if: steps.detect.outputs.should_build == 'true'
+        env:
+          VERSION: ${{ steps.detect.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sha() { gh release view "v${VERSION}" --repo anomalyco/opencode --json assets --jq ".assets[] | select(.name == \"$1\") | .digest | ltrimstr(\"sha256:\")"; }
+          {
+            echo "sha256_amd64_alpine=$(sha opencode-linux-x64-musl.tar.gz)"
+            echo "sha256_arm64_alpine=$(sha opencode-linux-arm64-musl.tar.gz)"
+            echo "sha256_amd64_debian=$(sha opencode-linux-x64.tar.gz)"
+            echo "sha256_arm64_debian=$(sha opencode-linux-arm64.tar.gz)"
+          } >> "${GITHUB_OUTPUT}"
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [alpine, debian]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Enable cross-arch emulation
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+
+      - name: Log in to GHCR
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | buildah login -u '${{ github.actor }}' --password-stdin '${{ env.REGISTRY }}'
+
+      - name: Set checksums
+        id: shas
+        run: |
+          VARIANT="${{ matrix.variant }}"
+          if [ "${VARIANT}" = "alpine" ]; then
+            echo "amd64=${{ needs.detect.outputs.sha256_amd64_alpine }}" >> "${GITHUB_OUTPUT}"
+            echo "arm64=${{ needs.detect.outputs.sha256_arm64_alpine }}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "amd64=${{ needs.detect.outputs.sha256_amd64_debian }}" >> "${GITHUB_OUTPUT}"
+            echo "arm64=${{ needs.detect.outputs.sha256_arm64_debian }}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Build amd64 image
+        env:
+          OPENCODE_VERSION: ${{ needs.detect.outputs.version }}
+          OPENCODE_SHA256_AMD64: ${{ steps.shas.outputs.amd64 }}
+          TARGETARCH: amd64
+          IMAGE_NAME: ${{ env.REGISTRY }}/${{ github.repository }}
+          IMAGE_TAG: v${{ needs.detect.outputs.version }}-${{ matrix.variant }}-amd64
+        run: ./build-${{ matrix.variant }}.sh
+
+      - name: Build arm64 image
+        env:
+          OPENCODE_VERSION: ${{ needs.detect.outputs.version }}
+          OPENCODE_SHA256_ARM64: ${{ steps.shas.outputs.arm64 }}
+          TARGETARCH: arm64
+          IMAGE_NAME: ${{ env.REGISTRY }}/${{ github.repository }}
+          IMAGE_TAG: v${{ needs.detect.outputs.version }}-${{ matrix.variant }}-arm64
+        run: ./build-${{ matrix.variant }}.sh
+
+      - name: Create and push manifest
+        id: manifest
+        run: |
+          VERSION="${{ needs.detect.outputs.version }}"
+          VARIANT="${{ matrix.variant }}"
+          IMAGE="${REGISTRY}/${{ github.repository }}"
+          MANIFEST="v${VERSION}-${VARIANT}"
+
+          buildah manifest create "${MANIFEST}"
+          buildah manifest add "${MANIFEST}" "${IMAGE}:v${VERSION}-${VARIANT}-amd64"
+          buildah manifest add "${MANIFEST}" "${IMAGE}:v${VERSION}-${VARIANT}-arm64"
+
+          buildah manifest push --all --format v2s "${MANIFEST}" "docker://${IMAGE}:${MANIFEST}"
+          buildah manifest push --all --format v2s "${MANIFEST}" "docker://${IMAGE}:latest-${VARIANT}"
+
+          if [ "${VARIANT}" = "alpine" ]; then
+            buildah manifest push --all --format v2s "${MANIFEST}" "docker://${IMAGE}:v${VERSION}"
+            buildah manifest push --all --format v2s "${MANIFEST}" "docker://${IMAGE}:latest"
+          fi
+
+          DIGEST=$(buildah manifest inspect "${MANIFEST}" | jq -r '.digest')
+          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign image
+        run: |
+          DIGEST="${{ steps.manifest.outputs.digest }}"
+          cosign sign --yes "${REGISTRY}/${{ github.repository }}@${DIGEST}"
+
+      - name: Build summary
+        run: |
+          {
+            echo "## Container image: ${{ matrix.variant }}"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Image | \`${REGISTRY}/${{ github.repository }}\` |"
+            echo "| Tags | \`v${{ needs.detect.outputs.version }}-${{ matrix.variant }}, latest-${{ matrix.variant }}\` |"
+            echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
