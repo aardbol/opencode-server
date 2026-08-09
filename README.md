@@ -1,0 +1,78 @@
+# opencode-server
+
+Hardened [OpenCode](https://github.com/anomalyco/opencode) server container images with automated CI/CD.
+
+The build workflow polls the upstream OpenCode release daily. When a new version is detected, it builds both variants for both architectures and pushes manifest lists to GHCR.
+
+## Images
+
+Multi-arch (`linux/amd64` + `linux/arm64`) images pushed to GHCR:
+
+| Variant | Base | Use case |
+|---|---|---|
+| `ghcr.io/aardbol/opencode-server:latest` | Alpine 3.23 (musl) | Minimal footprint, default |
+| `ghcr.io/aardbol/opencode-server:latest-alpine` | Alpine 3.23 (musl) | Explicit Alpine |
+| `ghcr.io/aardbol/opencode-server:latest-debian` | Debian 13.6-slim (glibc) | Broader tool compat |
+
+Versioned tags: `v1.18.15`, `v1.18.15-alpine`, `v1.18.15-debian`
+
+## Quick start
+
+```bash
+docker run -d --name opencode -p 4096:4096 ghcr.io/aardbol/opencode-server
+```
+
+The server listens on port 4096. Health check: `GET /global/health`
+
+## Configuration
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENCODE_PORT` | `4096` | Server port |
+| `OPENCODE_CORS` | _(none)_ | CORS allowed origins |
+
+Mount your own config to override:
+
+```bash
+docker run -d \
+  -v ./my-opencode.jsonc:/home/opencode/opencode.jsonc:ro \
+  ghcr.io/aardbol/opencode-server
+```
+
+### Persistent workspace
+
+Mount a volume for project files:
+
+```bash
+docker run -d \
+  -v opencode-workspace:/home/opencode/workspace \
+  ghcr.io/aardbol/opencode-server
+```
+
+## Security
+
+- Non-root user (`opencode`, uid 10001)
+- tini as PID 1 (zombie reaping, signal forwarding)
+- 3-layer final image (minimal attack surface)
+- SHA256 verification of opencode binary at build time
+- Images signed with cosign (keyless)
+
+## Verify image signature
+
+```bash
+cosign verify ghcr.io/aardbol/opencode-server:latest \
+  --certificate-identity-regexp 'https://github.com/aardbol/opencode-server' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+```
+
+## Included tools
+
+Both variants ship with tools the OpenCode agent needs at runtime:
+
+`bash`, `git`, `curl`, `jq`, `python3`, `ripgrep`, `openssh-client`, `tini`, `unzip`, `xz`, `zip`
+
+## License
+
+[MIT](LICENSE)
