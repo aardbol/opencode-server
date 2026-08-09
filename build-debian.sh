@@ -59,11 +59,11 @@ buildah config --workingdir /home/opencode "${CTR}"
 buildah config --env OPENCODE_PORT="${PORT}" "${CTR}"
 buildah config --port "${PORT}" "${CTR}"
 buildah config --volume /home/opencode "${CTR}"
-buildah config --healthcheck "CMD curl -fsS http://localhost:${PORT}/global/health || exit 1" "${CTR}"
-buildah config --healthcheck-interval 30s "${CTR}"
-buildah config --healthcheck-timeout 5s "${CTR}"
-buildah config --healthcheck-start-period 10s "${CTR}"
-buildah config --healthcheck-retries 3 "${CTR}"
+buildah config --healthcheck "CMD curl -fsS http://localhost:${PORT}/global/health || exit 1" "${CTR}" 2>/dev/null
+buildah config --healthcheck-interval 30s "${CTR}" 2>/dev/null
+buildah config --healthcheck-timeout 5s "${CTR}" 2>/dev/null
+buildah config --healthcheck-start-period 10s "${CTR}" 2>/dev/null
+buildah config --healthcheck-retries 3 "${CTR}" 2>/dev/null
 buildah config --entrypoint '["/usr/bin/tini", "--", "/entrypoint.sh"]' "${CTR}"
 buildah config --os linux --arch "${TARGETARCH}" "${CTR}"
 buildah config --label "org.opencontainers.image.title=OpenCode Server (Debian)" "${CTR}"
@@ -74,6 +74,7 @@ buildah config --label "org.opencontainers.image.version=${OPENCODE_VERSION}" "$
 buildah config --label "org.opencontainers.image.vendor=aardbol" "${CTR}"
 buildah config --label "org.opencontainers.image.licenses=MIT" "${CTR}"
 buildah config --label "org.opencontainers.image.base.name=docker.io/${BASE_IMAGE}" "${CTR}"
+buildah config --cmd '[]' "${CTR}"
 
 buildah commit --format docker "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
 buildah rm "${CTR}"
