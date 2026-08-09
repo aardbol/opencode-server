@@ -37,6 +37,8 @@ jobs:
       sha256_amd64_debian: ${{ steps.checksums.outputs.sha256_amd64_debian }}
       sha256_arm64_debian: ${{ steps.checksums.outputs.sha256_arm64_debian }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
 
       - uses: ./.github/actions/ghcr-login
