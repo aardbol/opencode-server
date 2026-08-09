@@ -1,0 +1,48 @@
+name: Container CI
+
+on:
+  pull_request:
+    paths:
+      - Containerfile.*
+      - entrypoint.sh
+      - opencode.json
+      - .github/workflows/container-ci.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install actionlint
+        run: |
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash)
+      - name: Run actionlint
+        run: ./actionlint -color
+
+  build:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [alpine, debian]
+        platform: [linux/amd64, linux/arm64]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Enable cross-arch emulation
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+
+      - name: Build ${{ matrix.variant }} for ${{ matrix.platform }}
+        uses: aardbol-actions/buildah-build@414c4e19729579733d4ed2c16cbb75ea25c7e580 # v3.1.0
+        with:
+          image: opencode-${{ matrix.variant }}
+          tags: ci-${{ github.sha }}
+          containerfiles: Containerfile.${{ matrix.variant }}
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            OPENCODE_VERSION=1.18.15
+          extra-args: --pull=always
