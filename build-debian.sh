@@ -30,8 +30,9 @@ trap 'rm -rf "${TMPDIR}"' EXIT
 curl -fsSL -o "${TMPDIR}/opencode.tar.gz" \
   "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-${ARCH}.tar.gz"
 echo "${OPENCODE_SHA256}  ${TMPDIR}/opencode.tar.gz" | sha256sum -c -
-tar -xzf "${TMPDIR}/opencode.tar.gz" -C "${TMPDIR}"
-find "${TMPDIR}" -maxdepth 1 -type f -executable -name 'opencode*' -exec mv {} "${TMPDIR}/opencode" \;
+mkdir -p "${TMPDIR}/extract"
+tar -xzf "${TMPDIR}/opencode.tar.gz" -C "${TMPDIR}/extract"
+find "${TMPDIR}/extract" -maxdepth 1 -type f -executable -name 'opencode*' -exec cp {} "${TMPDIR}/opencode" \;
 
 mkdir -p "${TMPDIR}/rootfs/usr/local/bin" "${TMPDIR}/rootfs/home/opencode"
 chmod 0755 "${TMPDIR}/opencode"
@@ -46,8 +47,8 @@ buildah run "${CTR}" -- sh -c "apt-get update && \
   apt-get install -y --no-install-recommends \
     build-essential ca-certificates curl git jq openssh-client pkg-config python3 ripgrep tini unzip xz-utils zip && \
   rm -rf /var/lib/apt/lists/* && \
-  groupadd -r -g 10001 opencode && \
-  useradd -r -u 10001 -g opencode -d /home/opencode -s /bin/bash opencode"
+  groupadd -g 10001 opencode && \
+  useradd -u 10001 -g opencode -d /home/opencode -s /bin/bash opencode"
 
 buildah copy "${CTR}" "${TMPDIR}/rootfs/" /
 
@@ -65,7 +66,7 @@ buildah config --healthcheck-start-period 10s "${CTR}"
 buildah config --healthcheck-retries 3 "${CTR}"
 buildah config --entrypoint '["/usr/bin/tini", "--", "/entrypoint.sh"]' "${CTR}"
 
-buildah commit "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
+buildah commit --format docker "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
 buildah rm "${CTR}"
 
 echo "Built ${IMAGE_NAME}:${IMAGE_TAG}"

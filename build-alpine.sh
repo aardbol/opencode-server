@@ -30,8 +30,9 @@ trap 'rm -rf "${TMPDIR}"' EXIT
 curl -fsSL -o "${TMPDIR}/opencode.tar.gz" \
   "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-${ARCH}-musl.tar.gz"
 echo "${OPENCODE_SHA256}  ${TMPDIR}/opencode.tar.gz" | sha256sum -c -
-tar -xzf "${TMPDIR}/opencode.tar.gz" -C "${TMPDIR}"
-find "${TMPDIR}" -maxdepth 1 -type f -executable -name 'opencode*' -exec mv {} "${TMPDIR}/opencode" \;
+mkdir -p "${TMPDIR}/extract"
+tar -xzf "${TMPDIR}/opencode.tar.gz" -C "${TMPDIR}/extract"
+find "${TMPDIR}/extract" -maxdepth 1 -type f -executable -name 'opencode*' -exec cp {} "${TMPDIR}/opencode" \;
 
 mkdir -p "${TMPDIR}/rootfs/usr/local/bin" "${TMPDIR}/rootfs/home/opencode"
 chmod 0755 "${TMPDIR}/opencode"
@@ -43,7 +44,7 @@ cp opencode.jsonc "${TMPDIR}/rootfs/home/opencode/opencode.jsonc"
 CTR=$(buildah from "docker.io/${BASE_IMAGE}")
 
 buildah run "${CTR}" -- sh -c "apk add --no-cache \
-  bash base-devel ca-certificates curl git jq openssh-client pkgconf python3 ripgrep tini unzip xz zip && \
+  bash build-base ca-certificates curl git jq openssh-client pkgconf python3 ripgrep tini unzip xz zip && \
   addgroup -g 10001 -S opencode && \
   adduser -u 10001 -S opencode -G opencode -h /home/opencode -s /bin/bash"
 
@@ -63,7 +64,7 @@ buildah config --healthcheck-start-period 10s "${CTR}"
 buildah config --healthcheck-retries 3 "${CTR}"
 buildah config --entrypoint '["/sbin/tini", "--", "/entrypoint.sh"]' "${CTR}"
 
-buildah commit "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
+buildah commit --format docker "${CTR}" "${IMAGE_NAME}:${IMAGE_TAG}"
 buildah rm "${CTR}"
 
 echo "Built ${IMAGE_NAME}:${IMAGE_TAG}"
