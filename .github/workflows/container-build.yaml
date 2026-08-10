@@ -112,8 +112,10 @@ jobs:
 
       - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
 
-      - name: Enable cross-arch emulation
-        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          platforms: linux/arm64
 
       - uses: ./.github/actions/ghcr-login
 
