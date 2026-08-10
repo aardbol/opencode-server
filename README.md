@@ -1,6 +1,6 @@
 # opencode-server
 
-Hardened [OpenCode](https://github.com/anomalyco/opencode) server container images with automated CI/CD.
+Hardened [OpenCode](https://github.com/anomalyco/opencode) server container images with automated CI/CD, for running it on a remote host/kubernetes cluster.
 
 The build workflow polls the upstream OpenCode release daily. When a new version is detected, it builds both variants for both architectures and pushes manifest lists to GHCR.
 
