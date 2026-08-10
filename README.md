@@ -34,6 +34,16 @@ The server listens on port 4096. Health check: `GET /global/health`
 |---|---|---|
 | `OPENCODE_CORS` | _(none)_ | CORS allowed origins |
 
+### Command-line arguments
+
+Any arguments passed are appended to the default command:
+
+```bash
+podman run -d \
+  -p 4096:4096 \
+  ghcr.io/aardbol/opencode-server --cors https://example.com --verbose
+```
+
 Mount your own config to override:
 
 ```bash

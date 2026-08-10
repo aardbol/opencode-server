@@ -7,4 +7,8 @@ if [ -n "${OPENCODE_CORS:-}" ]; then
   ARGS+=("--cors" "${OPENCODE_CORS}")
 fi
 
+if [ "$#" -gt 0 ]; then
+  ARGS+=("$@")
+fi
+
 exec opencode "${ARGS[@]}"
