@@ -244,7 +244,7 @@ jobs:
       - name: Attach SBOM
         run: |
           DIGEST="${{ steps.manifest.outputs.digest }}"
-          oras attach "${IMAGE}@${DIGEST}" sbom.spdx.json:application/spdx+json
+          oras attach --artifact-type application/spdx+json "${IMAGE}@${DIGEST}" sbom.spdx.json
 
       - name: Setup cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
