@@ -51,7 +51,6 @@ jobs:
           IMAGE="${REGISTRY}/${{ github.repository }}"
           INPUT_VERSION="${{ inputs.opencode_version }}"
           INPUT_REVISION="${{ inputs.build_revision }}"
-          IS_SCHEDULE="${{ github.event_name == 'schedule' }}"
 
           # Determine opencode version
           if [ -n "${INPUT_VERSION}" ]; then
@@ -99,6 +98,79 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        include:
+          - variant: alpine
+            arch: amd64
+            runner: ubuntu-24.04
+          - variant: alpine
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - variant: debian
+            arch: amd64
+            runner: ubuntu-24.04
+          - variant: debian
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/ghcr-login
+
+      - name: Set checksum
+        id: shas
+        run: |
+          VARIANT="${{ matrix.variant }}"
+          ARCH="${{ matrix.arch }}"
+          case "${VARIANT}-${ARCH}" in
+            alpine-amd64) SHA="${{ needs.detect.outputs.sha256_amd64_alpine }}" ;;
+            alpine-arm64) SHA="${{ needs.detect.outputs.sha256_arm64_alpine }}" ;;
+            debian-amd64) SHA="${{ needs.detect.outputs.sha256_amd64_debian }}" ;;
+            debian-arm64) SHA="${{ needs.detect.outputs.sha256_arm64_debian }}" ;;
+          esac
+          echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set image tag
+        id: tags
+        run: |
+          VERSION="${{ needs.detect.outputs.version }}"
+          REVISION="${{ needs.detect.outputs.revision }}"
+          VARIANT="${{ matrix.variant }}"
+          ARCH="${{ matrix.arch }}"
+
+          if [ -z "${REVISION}" ]; then
+            # First build: no revision suffix
+            echo "image_tag=v${VERSION}-${VARIANT}-${ARCH}" >> "${GITHUB_OUTPUT}"
+          else
+            # Rebuild: include revision suffix
+            echo "image_tag=v${VERSION}-${REVISION}-${VARIANT}-${ARCH}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Build ${{ matrix.arch }} image
+        env:
+          OPENCODE_VERSION: ${{ needs.detect.outputs.version }}
+          OPENCODE_SHA256_AMD64: ${{ steps.shas.outputs.sha }}
+          OPENCODE_SHA256_ARM64: ${{ steps.shas.outputs.sha }}
+          TARGETARCH: ${{ matrix.arch }}
+          IMAGE_TAG: ${{ steps.tags.outputs.image_tag }}
+        run: ./build-${{ matrix.variant }}.sh
+
+      - name: Push ${{ matrix.arch }} image
+        run: |
+          buildah push "${IMAGE}:${{ steps.tags.outputs.image_tag }}" \
+            "docker://${IMAGE}:${{ steps.tags.outputs.image_tag }}"
+
+  manifest:
+    needs: [detect, build]
+    if: needs.detect.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
         variant: [alpine, debian]
     runs-on: ubuntu-24.04
     permissions:
@@ -112,22 +184,7 @@ jobs:
 
       - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
 
-      - name: Enable cross-arch emulation
-        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
-
       - uses: ./.github/actions/ghcr-login
-
-      - name: Set checksums
-        id: shas
-        run: |
-          VARIANT="${{ matrix.variant }}"
-          if [ "${VARIANT}" = "alpine" ]; then
-            echo "amd64=${{ needs.detect.outputs.sha256_amd64_alpine }}" >> "${GITHUB_OUTPUT}"
-            echo "arm64=${{ needs.detect.outputs.sha256_arm64_alpine }}" >> "${GITHUB_OUTPUT}"
-          else
-            echo "amd64=${{ needs.detect.outputs.sha256_amd64_debian }}" >> "${GITHUB_OUTPUT}"
-            echo "arm64=${{ needs.detect.outputs.sha256_arm64_debian }}" >> "${GITHUB_OUTPUT}"
-          fi
 
       - name: Set image tags
         id: tags
@@ -148,21 +205,10 @@ jobs:
             echo "manifest=v${VERSION}-${REVISION}-${VARIANT}" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Build amd64 image
-        env:
-          OPENCODE_VERSION: ${{ needs.detect.outputs.version }}
-          OPENCODE_SHA256_AMD64: ${{ steps.shas.outputs.amd64 }}
-          TARGETARCH: amd64
-          IMAGE_TAG: ${{ steps.tags.outputs.amd64 }}
-        run: ./build-${{ matrix.variant }}.sh
-
-      - name: Build arm64 image
-        env:
-          OPENCODE_VERSION: ${{ needs.detect.outputs.version }}
-          OPENCODE_SHA256_ARM64: ${{ steps.shas.outputs.arm64 }}
-          TARGETARCH: arm64
-          IMAGE_TAG: ${{ steps.tags.outputs.arm64 }}
-        run: ./build-${{ matrix.variant }}.sh
+      - name: Pull architecture images
+        run: |
+          buildah pull "docker://${IMAGE}:${{ steps.tags.outputs.amd64 }}"
+          buildah pull "docker://${IMAGE}:${{ steps.tags.outputs.arm64 }}"
 
       - name: Create and push manifest
         id: manifest
@@ -197,7 +243,7 @@ jobs:
       - name: Attach SBOM
         run: |
           DIGEST="${{ steps.manifest.outputs.digest }}"
-          oras attach "${IMAGE}@${DIGEST}" sbom.spdx.json:application/spdx+json
+          oras attach --artifact-type application/spdx+json "${IMAGE}@${DIGEST}" sbom.spdx.json
 
       - name: Setup cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2

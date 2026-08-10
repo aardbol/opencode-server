@@ -1,6 +1,6 @@
 # opencode-server
 
-Hardened [OpenCode](https://github.com/anomalyco/opencode) server container images with automated CI/CD.
+Hardened [OpenCode](https://github.com/anomalyco/opencode) server container images with automated CI/CD, for running it on a remote host/kubernetes cluster.
 
 The build workflow polls the upstream OpenCode release daily. When a new version is detected, it builds both variants for both architectures and pushes manifest lists to GHCR.
 
@@ -21,7 +21,7 @@ Versioned tags (immutable):
 ## Quick start
 
 ```bash
-docker run -d --name opencode -p 4096:4096 ghcr.io/aardbol/opencode-server
+podman run -d --name opencode -p 4096:4096 ghcr.io/aardbol/opencode-server
 ```
 
 The server listens on port 4096. Health check: `GET /global/health`
@@ -34,10 +34,20 @@ The server listens on port 4096. Health check: `GET /global/health`
 |---|---|---|
 | `OPENCODE_CORS` | _(none)_ | CORS allowed origins |
 
+### Command-line arguments
+
+Any arguments passed are appended to the default command:
+
+```bash
+podman run -d \
+  -p 4096:4096 \
+  ghcr.io/aardbol/opencode-server --cors https://example.com --verbose
+```
+
 Mount your own config to override:
 
 ```bash
-docker run -d \
+podman run -d \
   -v ./my-opencode.jsonc:/home/opencode/opencode.jsonc:ro \
   ghcr.io/aardbol/opencode-server
 ```
@@ -47,7 +57,7 @@ docker run -d \
 Mount a volume for project files:
 
 ```bash
-docker run -d \
+podman run -d \
   -v opencode-workspace:/home/opencode/workspace \
   ghcr.io/aardbol/opencode-server
 ```
