@@ -167,7 +167,7 @@ jobs:
             "docker://${IMAGE}:${{ steps.tags.outputs.image_tag }}"
 
   manifest:
-    needs: build
+    needs: [detect, build]
     if: needs.detect.outputs.should_build == 'true'
     strategy:
       fail-fast: false
