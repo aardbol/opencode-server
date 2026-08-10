@@ -51,7 +51,6 @@ jobs:
           IMAGE="${REGISTRY}/${{ github.repository }}"
           INPUT_VERSION="${{ inputs.opencode_version }}"
           INPUT_REVISION="${{ inputs.build_revision }}"
-          IS_SCHEDULE="${{ github.event_name == 'schedule' }}"
 
           # Determine opencode version
           if [ -n "${INPUT_VERSION}" ]; then
