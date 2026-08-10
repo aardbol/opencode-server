@@ -1,0 +1,22 @@
+{
+  "name": "opencode-helm",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {},
+    "ghcr.io/devcontainers-extra/features/yamllint:2": {},
+    "ghcr.io/gvatsal60/dev-container-features/pre-commit:1": {}
+  },
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends python3-pip && pre-commit install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.helm",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "timonwong.shellcheck"
+      ]
+    }
+  },
+  "forwardPorts": [4096],
+  "remoteUser": "vscode"
+}
