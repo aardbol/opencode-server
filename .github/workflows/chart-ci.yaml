@@ -1,15 +1,22 @@
-name: chart-ci
+name: Helm CI
 
 on:
   pull_request:
     paths:
       - "chart/**"
       - "artifacthub-repo.yml"
+      - ".kube-linter.yaml"
+      - "Makefile"
+      - ".github/workflows/chart-ci.yaml"
   push:
     branches:
       - main
     paths:
       - "chart/**"
+      - "artifacthub-repo.yml"
+      - ".kube-linter.yaml"
+      - "Makefile"
+      - ".github/workflows/chart-ci.yaml"
 
 permissions:
   contents: read
@@ -24,22 +31,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Helm
-        uses: azure/setup-helm@b5b231b50f6defcf02df65a4535f2026d7b5a768 # v4.3.0
-        with:
-          version: v3.14.4
-
       - name: Helm lint
-        run: helm lint chart/
+        run: make helm-lint
 
-      - name: Helm template (default)
-        run: helm template opencode chart/
+      - name: Helm template (example overlays)
+        run: make helm-template
 
-      - name: Helm template (ingress example)
-        run: helm template opencode chart/ -f chart/examples/values-ingress.yaml
+      - name: Helm unit tests
+        run: make helm-unit-check
 
-      - name: Helm template (persistence example)
-        run: helm template opencode chart/ -f chart/examples/values-persistence.yaml
+      - name: Run kube-linter
+        uses: stackrox/kube-linter-action@87802a2f4e01abebb3ee3c67a3002fea71f6eae5 # v1.0.7
+        with:
+          directory: chart
+          config: .kube-linter.yaml
+          format: plain
 
-      - name: Validate values schema
-        run: helm template opencode chart/ --validate
+      - name: Run kubeconform
+        uses: aardbol/k8s-lint@4676a66f5a37b93f2cf75ecbe498d770b9d7d2ce # v5.1.0
+        with:
+          manifests: chart/
+          lintType: kubeconform
+          kubeconformOpts: -summary -strict -ignore-missing-schemas

@@ -1,0 +1,6 @@
+checks:
+  # The chart defaults image.tag to "latest" (the image repo's default
+  # rolling tag). Users pin a specific tag via values.image.tag; the check
+  # is intentionally disabled here.
+  exclude:
+    - latest-tag

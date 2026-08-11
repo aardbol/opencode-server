@@ -1,0 +1,53 @@
+suite: Service defaults
+templates:
+  - service.yaml
+release:
+  name: opencode
+tests:
+  - it: renders a ClusterIP Service on the HTTP port
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Service
+      - isAPIVersion:
+          of: v1
+      - equal:
+          path: metadata.name
+          value: opencode
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 4096
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: opencode
+
+  - it: renders a NodePort Service when configured
+    set:
+      service.type: NodePort
+      service.nodePort: 30096
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+      - equal:
+          path: spec.ports[0].nodePort
+          value: 30096
+
+  - it: sets loadBalancerIP when type is LoadBalancer
+    set:
+      service.type: LoadBalancer
+      service.loadBalancerIP: 10.0.0.42
+    asserts:
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+      - equal:
+          path: spec.loadBalancerIP
+          value: "10.0.0.42"
