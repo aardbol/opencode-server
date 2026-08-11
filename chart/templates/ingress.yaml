@@ -9,9 +9,6 @@ metadata:
     {{- range $key, $val := .Values.ingress.annotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
-    {{- if .Values.ingress.certManagerIssuer }}
-    cert-manager.io/cluster-issuer: {{ .Values.ingress.certManagerIssuer | quote }}
-    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className | quote }}

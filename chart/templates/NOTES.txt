@@ -1,0 +1,30 @@
+OpenCode server deployed successfully.
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+
+  URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+Get the server URL by running:
+
+  kubectl port-forward svc/{{ include "opencode.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+  Then open: http://localhost:{{ .Values.service.port }}
+{{- end }}
+
+{{- if .Values.auth.basic.enabled }}
+
+Basic auth is enabled.
+  Username: {{ .Values.auth.basic.username }}
+  Password: stored in Secret "{{ include "opencode.secretName" . }}"
+{{- else }}
+
+WARNING: Basic auth is disabled. The server is open to anyone with network access.
+{{- end }}
+
+{{- if not .Values.config.enabled }}
+
+Using the image's default config. Set config.enabled: true to override.
+{{- end }}

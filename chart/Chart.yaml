@@ -1,10 +1,9 @@
 apiVersion: v2
 name: opencode
-description: Hardened OpenCode server (opencode serve) for Kubernetes
+description: Hardened OpenCode server for Kubernetes
 type: application
-icon: https://raw.githubusercontent.com/aardbol/opencode-server/main/chart/icon.png
-version: 0.1.0
-appVersion: "1.18.15"
+version: "1.0.0"
+appVersion: "1.18.16"
 keywords:
   - ai
   - coding-agent
@@ -15,21 +14,15 @@ home: https://github.com/aardbol/opencode-server
 sources:
   - https://github.com/aardbol/opencode-server
 maintainers:
-  - name: aardbol
+  - name: Leonardo (aardbol)
     url: https://github.com/aardbol
 annotations:
-  artifacthub.io/description: "Hardened OpenCode server (opencode serve) for Kubernetes."
-  artifacthub.io/prerelease: "false"
-  artifacthub.io/containsSecurityUpdates: "true"
-  artifacthub.io/images: |
-    - name: ghcr.io/aardbol/opencode-server
-      image: ghcr.io/aardbol/opencode-server:latest
+  artifacthub.io/maintainers: |
+    - name: aardbol
+  artifacthub.io/category: ai
   artifacthub.io/license: MIT
-  artifacthub.io/recommendations: |
-    - url: https://artifacthub.io/packages/helm/cert-manager/cert-manager
-  artifacthub.io/support: |
-    - url: https://github.com/aardbol/opencode-server/issues
-      kind: issues
+  artifacthub.io/links: |
+    - name: Support
+      url: https://github.com/aardbol/opencode-server/issues
   artifacthub.io/changes: |
-    - Initial hardened chart: ConfigMap config, Secret API keys, deny-all NetworkPolicy with opt-in egress, optional PVC/HPA/PDB.
-  artifacthub.io/signed: "false"
+    - Initial chart: ConfigMap config, Secret API keys, deny-all NetworkPolicy with opt-in egress, optional PVC/PDB.

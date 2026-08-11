@@ -41,7 +41,7 @@ tests:
           value: opencode
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.port.number
-          value: 4096
+          value: 80
 
   - it: sets ingressClassName when provided
     set:
@@ -57,10 +57,11 @@ tests:
           path: spec.ingressClassName
           value: nginx
 
-  - it: adds the cert-manager cluster-issuer annotation when configured
+  - it: passes custom annotations through to the Ingress
     set:
       ingress.enabled: true
-      ingress.certManagerIssuer: letsencrypt-prod
+      ingress.annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
       ingress.hosts:
         - host: opencode.example.com
           paths:

@@ -1,4 +1,4 @@
-{{- if .Values.config.enabled }}
+{{- if and .Values.config.enabled (not .Values.config.existingConfigMap) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,5 +7,6 @@ metadata:
     {{- include "opencode.labels" . | nindent 4 }}
 data:
   opencode.jsonc: |
-    {{- .Values.config.content | toJson | nindent 4 }}
+    {{- $config := merge (dict "$schema" "https://opencode.ai/config.json") .Values.config.content }}
+    {{- $config | toJson | nindent 4 }}
 {{- end }}

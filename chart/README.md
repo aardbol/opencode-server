@@ -30,9 +30,10 @@ helm install opencode ./chart -n opencode --create-namespace
 | `securityContext` | object | see values | Pod securityContext (non-root, seccomp). |
 | `containerSecurityContext` | object | see values | Container securityContext (read-only root, drop ALL). |
 | `env` | list | `[]` | Extra env vars. |
-| `config.enabled` | bool | `true` | Render the opencode config ConfigMap. |
-| `config.path` | string | `/home/opencode/opencode.jsonc` | Mount path for the config file. |
-| `config.content` | object | `server` block | Body of `opencode.jsonc`. |
+| `config.enabled` | bool | `false` | Render and mount the opencode config ConfigMap. When `false`, the image's baked-in default is used. |
+| `config.path` | string | `/home/opencode/opencode.jsonc` | Mount path inside the container (matches image default). |
+| `config.existingConfigMap` | string | `""` | Use an existing ConfigMap (with an `opencode.jsonc` key) instead of generating one. |
+| `config.content` | object | `{}` | Body of `opencode.jsonc`. The `$schema` field is injected automatically. |
 | `auth.basic.enabled` | bool | `false` | Enable HTTP basic auth. |
 | `auth.basic.username` | string | `opencode` | Basic-auth username. |
 | `auth.basic.password` | string | `""` | Basic-auth password (**set at install, not committed**). |
@@ -40,37 +41,39 @@ helm install opencode ./chart -n opencode --create-namespace
 | `auth.existingSecret` | string | `""` | Use a pre-created Secret for all auth. |
 | `auth.apiKeySecret` | object | `{}` | Map of env var name → value (e.g. `ANTHROPIC_API_KEY`). |
 | `service.type` | string | `ClusterIP` | Service type. |
-| `service.port` | int | `4096` | Service port. |
+| `service.port` | int | `80` | Service port. |
 | `ingress.enabled` | bool | `false` | Enable the Ingress resource. |
 | `ingress.className` | string | `""` | Ingress class name. |
 | `ingress.hosts` | list | `[]` | Ingress hosts/paths. |
 | `ingress.tls` | list | `[]` | Ingress TLS config. |
-| `ingress.certManagerIssuer` | string | `""` | cert-manager ClusterIssuer annotation. |
 | `persistence.enabled` | bool | `false` | Provision a PVC for `/home/opencode`. |
 | `persistence.size` | string | `1Gi` | PVC size. |
 | `persistence.storageClass` | string | `""` | StorageClass (dynamic if empty). |
 | `persistence.existingClaim` | string | `""` | Use an existing PVC. |
-| `networkPolicy.enabled` | bool | `true` | Deploy a deny-all NetworkPolicy. |
+| `networkPolicy.enabled` | bool | `false` | Deploy a deny-all NetworkPolicy. |
 | `networkPolicy.dnsNamespace` | string | `kube-system` | Namespace hosting kube-dns. |
 | `networkPolicy.egress` | list | `[]` | Extra egress allowlist rules. |
 | `resources` | object | see values | CPU/memory requests & limits. |
-| `hpa.enabled` | bool | `false` | Enable HorizontalPodAutoscaler. |
 | `pdb.enabled` | bool | `false` | Enable PodDisruptionBudget. |
 
 ## Config
 
-The chart renders an `opencode.jsonc` ConfigMap from `config.content` and mounts
-it read-only. `OPENCODE_CONFIG` is set to `config.path`. Example:
+By default, `config.enabled` is `false` and the image's baked-in
+`opencode.jsonc` is used. To override, set `config.enabled: true` and
+provide `config.content`. Example:
 
 ```yaml
 config:
+  enabled: true
   content:
+    default_agent: plan
     server:
       port: 4096
       hostname: 0.0.0.0
-      cors:
-        - http://localhost:5173
+      cors: []
 ```
+
+To use a ConfigMap you already own, set `config.existingConfigMap` instead.
 
 ## Auth
 
@@ -93,7 +96,8 @@ Disabled by default. Enable with a host and (optionally) cert-manager:
 ingress:
   enabled: true
   className: nginx
-  certManagerIssuer: letsencrypt-prod
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - host: opencode.example.com
       paths:
@@ -132,8 +136,3 @@ networkPolicy:
         - protocol: TCP
           port: 443
 ```
-
-## Upgrading
-
-Chart version `0.1.0` tracks image appVersion `1.18.15`. Bump `image.tag` to
-follow upstream OpenCode releases.

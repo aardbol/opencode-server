@@ -65,15 +65,8 @@ tests:
           path: spec.template.spec.automountServiceAccountToken
           value: false
 
-  - it: mounts the read-only config and a /tmp emptyDir
+  - it: mounts a /tmp emptyDir but no config by default
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].volumeMounts
-          content:
-            name: config
-            mountPath: /home/opencode/opencode.jsonc
-            subPath: opencode.jsonc
-            readOnly: true
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
@@ -82,21 +75,22 @@ tests:
       - contains:
           path: spec.template.spec.volumes
           content:
-            name: config
-          any: true
-      - contains:
-          path: spec.template.spec.volumes
-          content:
             name: tmp
           any: true
-
-  - it: sets the config env and the http port
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: OPENCODE_CONFIG
-            value: /home/opencode/opencode.jsonc
+            name: config
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+          any: true
+
+  - it: sets the http port but no config env by default
+    asserts:
+      - isNullOrEmpty:
+          path: spec.template.spec.containers[0].env
       - equal:
           path: spec.template.spec.containers[0].ports[0].containerPort
           value: 4096
@@ -115,3 +109,55 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.port
           value: http
+
+  - it: mounts config and sets env when config.enabled is true
+    set:
+      config.enabled: true
+      config.content:
+        default_agent: plan
+        server:
+          port: 4096
+          hostname: "0.0.0.0"
+          cors: []
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /home/opencode/opencode.jsonc
+            subPath: opencode.jsonc
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+          any: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OPENCODE_CONFIG
+            value: /home/opencode/opencode.jsonc
+
+  - it: decouples containerPort from service.port when config sets a different server port
+    set:
+      config.enabled: true
+      config.content.server.port: 8080
+      service.port: 4096
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  - it: references an existing ConfigMap when configured
+    set:
+      config.enabled: true
+      config.existingConfigMap: my-opencode-config
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+          any: true
+      - equal:
+          path: spec.template.spec.volumes[0].configMap.name
+          value: my-opencode-config

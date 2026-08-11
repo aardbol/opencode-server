@@ -19,7 +19,7 @@ spec:
               {{- include "opencode.selectorLabels" . | nindent 14 }}
       ports:
         - protocol: TCP
-          port: {{ .Values.service.port }}
+          port: {{ if .Values.config.enabled }}{{ dig "server" "port" 4096 .Values.config.content }}{{ else }}4096{{ end }}
   egress:
     - to:
         - namespaceSelector:

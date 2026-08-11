@@ -1,7 +1,8 @@
 ingress:
   enabled: true
   className: nginx
-  certManagerIssuer: letsencrypt-prod
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - host: opencode.example.com
       paths:

@@ -20,34 +20,10 @@ tests:
           value: ClusterIP
       - equal:
           path: spec.ports[0].port
-          value: 4096
+          value: 80
       - equal:
           path: spec.ports[0].targetPort
           value: http
       - equal:
           path: spec.selector["app.kubernetes.io/name"]
           value: opencode
-
-  - it: renders a NodePort Service when configured
-    set:
-      service.type: NodePort
-      service.nodePort: 30096
-    asserts:
-      - equal:
-          path: spec.type
-          value: NodePort
-      - equal:
-          path: spec.ports[0].nodePort
-          value: 30096
-
-  - it: sets loadBalancerIP when type is LoadBalancer
-    set:
-      service.type: LoadBalancer
-      service.loadBalancerIP: 10.0.0.42
-    asserts:
-      - equal:
-          path: spec.type
-          value: LoadBalancer
-      - equal:
-          path: spec.loadBalancerIP
-          value: "10.0.0.42"

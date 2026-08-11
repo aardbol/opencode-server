@@ -37,11 +37,13 @@ spec:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ if .Values.config.enabled }}{{ dig "server" "port" 4096 .Values.config.content }}{{ else }}4096{{ end }}
               protocol: TCP
           env:
+            {{- if .Values.config.enabled }}
             - name: OPENCODE_CONFIG
               value: {{ .Values.config.path | quote }}
+            {{- end }}
             {{- if .Values.auth.basic.enabled }}
             - name: OPENCODE_SERVER_USERNAME
               value: {{ .Values.auth.basic.username | quote }}
@@ -80,10 +82,12 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- if .Values.config.enabled }}
             - name: config
               mountPath: {{ .Values.config.path }}
               subPath: opencode.jsonc
               readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
             {{- if .Values.persistence.enabled }}
@@ -91,9 +95,11 @@ spec:
               mountPath: {{ .Values.persistence.mountPath }}
             {{- end }}
       volumes:
+        {{- if .Values.config.enabled }}
         - name: config
           configMap:
-            name: {{ include "opencode.configName" . }}
+            name: {{ .Values.config.existingConfigMap | default (include "opencode.configName" .) }}
+        {{- end }}
         - name: tmp
           emptyDir: {}
         {{- if .Values.persistence.enabled }}

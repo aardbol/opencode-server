@@ -5,6 +5,8 @@ release:
   name: opencode
 tests:
   - it: renders a deny-by-default NetworkPolicy
+    set:
+      networkPolicy.enabled: true
     asserts:
       - hasDocuments:
           count: 1
@@ -22,7 +24,27 @@ tests:
           path: spec.policyTypes
           content: Egress
 
+  - it: allows ingress on the default container port
+    set:
+      networkPolicy.enabled: true
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 4096
+
+  - it: allows ingress on a custom server port when config is enabled
+    set:
+      networkPolicy.enabled: true
+      config.enabled: true
+      config.content.server.port: 8080
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 8080
+
   - it: allows DNS egress to the kube-dns namespace
+    set:
+      networkPolicy.enabled: true
     asserts:
       - equal:
           path: spec.egress[0].to[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
@@ -47,6 +69,7 @@ tests:
 
   - it: uses a custom DNS namespace when configured
     set:
+      networkPolicy.enabled: true
       networkPolicy.dnsNamespace: custom-dns
     asserts:
       - equal:
