@@ -77,16 +77,19 @@ done
 install_packages "${CTR}"
 create_user "${CTR}"
 
+OPENCODE_HOME_DIR="/home/opencode"
+OPENCODE_CONFIG_DIR="$OPENCODE_HOME_DIR/.config/opencode"
+
 # Copy files directly into the container
 buildah copy --chown opencode:opencode "${CTR}" "${BINARY}" /usr/local/bin/opencode
-buildah copy --chown opencode:opencode --chmod 0755 "${CTR}" entrypoint.sh /entrypoint.sh
-buildah copy --chown opencode:opencode "${CTR}" opencode.jsonc /home/opencode/opencode.jsonc
+buildah run "${CTR}" -- mkdir -p "${OPENCODE_CONFIG_DIR}"
+buildah copy --chown opencode:opencode "${CTR}" opencode.jsonc "${OPENCODE_CONFIG_DIR}/opencode.jsonc"
 
 # Configure container
 buildah config --user opencode "${CTR}"
-buildah config --workingdir /home/opencode "${CTR}"
+buildah config --workingdir "${OPENCODE_HOME_DIR}" "${CTR}"
 buildah config --port "4096" "${CTR}"
-buildah config --volume /home/opencode "${CTR}"
+buildah config --volume "${OPENCODE_HOME_DIR}" "${CTR}"
 
 buildah config --healthcheck "CMD curl -fsS http://localhost:4096/global/health || exit 1" "${CTR}" 2>/dev/null
 buildah config --healthcheck-interval 30s "${CTR}" 2>/dev/null
@@ -116,8 +119,8 @@ buildah run "${CTR}" -- opencode --version >/dev/null || {
 }
 echo "Image verification passed"
 
-buildah config --entrypoint '["tini", "--", "/entrypoint.sh"]' "${CTR}"
-buildah config --cmd '[]' "${CTR}"
+buildah config --entrypoint '["tini", "--", "opencode"]' "${CTR}"
+buildah config --cmd '["serve"]' "${CTR}"
 
 # Commit and clean up
 buildah commit --format docker "${CTR}" "${IMAGE}:${IMAGE_TAG}"
