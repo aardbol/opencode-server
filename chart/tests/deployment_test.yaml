@@ -110,6 +110,15 @@ tests:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.port
           value: http
 
+  - it: wires a startup probe to the health endpoint
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /global/health
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 30
+
   - it: mounts config and sets env when config.enabled is true
     set:
       config.enabled: true
