@@ -4,7 +4,11 @@ CHART := chart
 IMAGE_TAG ?= opencode
 KUBECONFORM_OPTS ?= -summary -strict -ignore-missing-schemas
 
-.PHONY: helm-lint helm-template helm-unit-tests kube-linter kubeconform all
+.PHONY: helm-lint helm-template helm-unit-tests kube-linter kubeconform schema-update all
+
+## schema-update: refresh the bundled opencode config schema and inline it into values.schema.json
+schema-update:
+	python3 scripts/update-config-schema.py
 
 ## helm-lint: validate chart structure and values against values.schema.json
 helm-lint:

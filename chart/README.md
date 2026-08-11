@@ -58,10 +58,10 @@ helm install opencode ./chart -n opencode --create-namespace
 
 ## Config
 
-By default, `config.enabled` is `false` and the image's baked-in
-`opencode.jsonc` is used. To override, set `config.enabled: true` and
-provide `config.content`. Example:
+By default, `config.enabled` is `false` and the image's `opencode.jsonc` is used.
+To override, set `config.enabled: true` and provide `config.content`.
 
+Example:
 ```yaml
 config:
   enabled: true
@@ -74,6 +74,13 @@ config:
 ```
 
 To use a ConfigMap you already own, set `config.existingConfigMap` instead.
+
+`config.content` is validated against the [opencode config schema](https://opencode.ai/config.json), inlined into `values.schema.json`.
+
+To refresh it from upstream:
+```bash
+make schema-update
+```
 
 ## Auth
 
