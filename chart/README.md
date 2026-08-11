@@ -30,6 +30,11 @@ helm install opencode ./chart -n opencode --create-namespace
 | `securityContext` | object | see values | Pod securityContext (non-root, seccomp). |
 | `containerSecurityContext` | object | see values | Container securityContext (read-only root, drop ALL). |
 | `env` | list | `[]` | Extra env vars. |
+| `probes.path` | string | `/global/health` | Shared health path for all probes. |
+| `probes.startup.enabled` | bool | `true` | Enable the startup probe. |
+| `probes.liveness.enabled` | bool | `true` | Enable the liveness probe. |
+| `probes.readiness.enabled` | bool | `true` | Enable the readiness probe. |
+| `probes.liveness.initialDelaySeconds` | int | `10` | Liveness initial delay (per-probe timings also configurable). |
 | `config.enabled` | bool | `false` | Render and mount the opencode config ConfigMap. When `false`, the image's baked-in default is used. |
 | `config.path` | string | `/home/opencode/opencode.jsonc` | Mount path inside the container (matches image default). |
 | `config.existingConfigMap` | string | `""` | Use an existing ConfigMap (with an `opencode.jsonc` key) instead of generating one. |
@@ -55,6 +60,10 @@ helm install opencode ./chart -n opencode --create-namespace
 | `networkPolicy.egress` | list | `[]` | Extra egress allowlist rules. |
 | `resources` | object | see values | CPU/memory requests & limits. |
 | `pdb.enabled` | bool | `false` | Enable PodDisruptionBudget. |
+| `affinity` | object | `{}` | Node/pod placement rules. A soft podAntiAffinity is applied by default. |
+| `topologySpreadConstraints` | list | `[]` | Spread replicas across nodes/zones. |
+| `nodeSelector` | object | `{}` | Constrain pods to matching nodes. |
+| `tolerations` | list | `[]` | Pod tolerations. |
 
 ## Config
 

@@ -119,6 +119,49 @@ tests:
           path: spec.template.spec.containers[0].startupProbe.failureThreshold
           value: 30
 
+  - it: uses a custom probe path and timings when configured
+    set:
+      probes:
+        path: /custom/healthz
+        liveness:
+          enabled: true
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 5
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /custom/healthz
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 30
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 5
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /custom/healthz
+
+  - it: omits a probe when disabled
+    set:
+      probes.liveness.enabled: false
+      probes.readiness.enabled: false
+      probes.startup.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe
+
   - it: mounts config and sets env when config.enabled is true
     set:
       config.enabled: true
@@ -217,3 +260,28 @@ tests:
           value: topology.kubernetes.io/zone
       - notExists:
           path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution
+
+  - it: renders no topologySpreadConstraints by default
+    asserts:
+      - notExists:
+          path: spec.template.spec.topologySpreadConstraints
+
+  - it: renders topologySpreadConstraints when configured
+    set:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: opencode
+    asserts:
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].maxSkew
+          value: 1
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].topologyKey
+          value: topology.kubernetes.io/zone
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].whenUnsatisfiable
+          value: ScheduleAnyway

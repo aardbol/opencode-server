@@ -48,6 +48,31 @@ containerSecurityContext:
 # Extra environment variables for the container
 env: []
 
+# Health probe settings. Set a probe's `enabled` to false to omit it entirely.
+probes:
+  # Shared httpGet target for all probes.
+  path: /global/health
+  port: http
+  # Startup probe gives the server time to boot before liveness takes over.
+  startup:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 30
+  liveness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
 # Opencode server configuration
 config:
   # Render and mount the ConfigMap. When false, the image's simple default is used.
@@ -150,3 +175,12 @@ tolerations: []
 
 # Node/pod placement rules. A soft podAntiAffinity is applied by default and merged with any affinity you set here.
 affinity: {}
+
+# Spread replicas across nodes or zones.
+topologySpreadConstraints: []
+#  - maxSkew: 1
+#    topologyKey: topology.kubernetes.io/zone
+#    whenUnsatisfiable: ScheduleAnyway
+#    labelSelector:
+#      matchLabels:
+#        app.kubernetes.io/name: opencode

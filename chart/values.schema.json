@@ -88,6 +88,30 @@
         ]
       }
     },
+    "probes": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "startup": {
+          "$ref": "#/$defs/ProbeConfig"
+        },
+        "liveness": {
+          "$ref": "#/$defs/ProbeConfig"
+        },
+        "readiness": {
+          "$ref": "#/$defs/ProbeConfig"
+        }
+      },
+      "additionalProperties": false
+    },
     "config": {
       "type": "object",
       "properties": {
@@ -286,6 +310,9 @@
     "affinity": {
       "type": "object"
     },
+    "topologySpreadConstraints": {
+      "type": "array"
+    },
     "podAnnotations": {
       "type": "object"
     },
@@ -309,6 +336,31 @@
         "ERROR"
       ],
       "description": "Log level"
+    },
+    "ProbeConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "initialDelaySeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
     },
     "ServerConfig": {
       "type": "object",
