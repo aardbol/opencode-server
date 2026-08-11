@@ -145,5 +145,8 @@ pdb:
   maxUnavailable: null
 
 nodeSelector: {}
+
 tolerations: []
+
+# Node/pod placement rules. A soft podAntiAffinity is applied by default and merged with any affinity you set here.
 affinity: {}

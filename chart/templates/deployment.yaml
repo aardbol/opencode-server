@@ -119,9 +119,14 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- $defaultAntiAffinity := include "opencode.podAntiAffinity" . | fromYaml }}
+      {{- $affinity := .Values.affinity | default dict | deepCopy }}
+      {{- if not (hasKey $affinity "podAntiAffinity") }}
+      {{- $affinity = set $affinity "podAntiAffinity" $defaultAntiAffinity }}
+      {{- end }}
+      {{- with $affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml $affinity | nindent 8 }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:

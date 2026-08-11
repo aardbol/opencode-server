@@ -67,6 +67,19 @@ Container image reference.
 {{- end }}
 
 {{/*
+Default pod anti-affinity (soft): prefer spreading replicas across nodes.
+*/}}
+{{- define "opencode.podAntiAffinity" -}}
+preferredDuringSchedulingIgnoredDuringExecution:
+  - weight: 100
+    podAffinityTerm:
+      topologyKey: kubernetes.io/hostname
+      labelSelector:
+        matchLabels:
+          {{- include "opencode.selectorLabels" . | nindent 10 }}
+{{- end }}
+
+{{/*
 ConfigMap name.
 */}}
 {{- define "opencode.configName" -}}
