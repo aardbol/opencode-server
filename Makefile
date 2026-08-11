@@ -4,7 +4,7 @@ CHART := chart
 IMAGE_TAG ?= opencode
 KUBECONFORM_OPTS ?= -summary -strict -ignore-missing-schemas
 
-.PHONY: helm-lint helm-template helm-unit-tests kube-linter kubeconform schema-update all
+.PHONY: helm-lint helm-template helm-unit-tests helm-dry-run kube-linter kubeconform schema-update all
 
 ## schema-update: refresh the bundled opencode config schema and inline it into values.schema.json
 schema-update:
@@ -14,7 +14,7 @@ schema-update:
 helm-lint:
 	helm lint $(CHART)
 
-## helm-template: smoke-render the chart with example value files
+## helm-template: smoke-render the chart with example value files (skips schema validation)
 helm-template:
 	helm template $(IMAGE_TAG) $(CHART) -f $(CHART)/examples/values-ingress.yaml
 	helm template $(IMAGE_TAG) $(CHART) -f $(CHART)/examples/values-persistence.yaml
@@ -26,6 +26,12 @@ helm-unit-tests:
 		helm plugin install https://github.com/helm-unittest/helm-unittest; \
 	fi
 	helm unittest $(CHART)
+
+## helm-dry-run: smoke-test helm install --dry-run=client with default and example values (includes schema validation)
+helm-dry-run:
+	helm install $(IMAGE_TAG) $(CHART) --dry-run=client
+	helm install $(IMAGE_TAG) $(CHART) --dry-run=client -f $(CHART)/examples/values-ingress.yaml
+	helm install $(IMAGE_TAG) $(CHART) --dry-run=client -f $(CHART)/examples/values-persistence.yaml
 
 ## kube-linter: run static best-practice/security checks on the templates
 kube-linter:
@@ -41,4 +47,4 @@ kubeconform:
 	kubeconform $(KUBECONFORM_OPTS) "$$tmp"/*.yaml
 
 ## all: run the full local validation suite
-all: helm-lint helm-template helm-unit-tests kube-linter kubeconform
+all: helm-lint helm-template helm-unit-tests helm-dry-run kube-linter kubeconform
