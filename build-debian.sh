@@ -15,7 +15,7 @@ install_packages() {
 create_user() {
   local ctr="$1"
   buildah run "${ctr}" -- sh -c "groupadd -g 10001 opencode && \
-    useradd -u 10001 -g opencode -d /home/opencode -s /bin/bash opencode"
+    useradd -m -u 10001 -g opencode -d /home/opencode -s /bin/bash opencode"
 }
 
 source "$(dirname "$0")/build-common.sh"

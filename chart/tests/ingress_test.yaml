@@ -1,0 +1,90 @@
+suite: Ingress
+templates:
+  - ingress.yaml
+release:
+  name: opencode
+tests:
+  - it: renders no Ingress by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders an Ingress when enabled with host and path
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: opencode.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Ingress
+      - isAPIVersion:
+          of: networking.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: opencode
+      - equal:
+          path: spec.rules[0].host
+          value: opencode.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: Prefix
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: opencode
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 80
+
+  - it: sets ingressClassName when provided
+    set:
+      ingress.enabled: true
+      ingress.className: nginx
+      ingress.hosts:
+        - host: opencode.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+
+  - it: passes custom annotations through to the Ingress
+    set:
+      ingress.enabled: true
+      ingress.annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      ingress.hosts:
+        - host: opencode.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - equal:
+          path: metadata.annotations["cert-manager.io/cluster-issuer"]
+          value: letsencrypt-prod
+
+  - it: renders TLS entries when provided
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: opencode.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+      ingress.tls:
+        - hosts:
+            - opencode.example.com
+          secretName: opencode-tls
+    asserts:
+      - equal:
+          path: spec.tls[0].secretName
+          value: opencode-tls

@@ -28,29 +28,18 @@ The server listens on port 4096. Health check: `GET /global/health`
 
 ## Configuration
 
-### Environment variables
+### Configuration file
 
-| Variable | Default | Description |
-|---|---|---|
-| `OPENCODE_CORS` | _(none)_ | CORS allowed origins |
-
-### Command-line arguments
-
-Any arguments passed are appended to the default command:
+The container image has a default `opencode.jsonc` that it puts in `/home/opencode/.config/opencode/opencode.jsonc`, which makes it bind to `0.0.0.0:4096` without any cors rules. Mount your own config to override:
 
 ```bash
 podman run -d \
   -p 4096:4096 \
-  ghcr.io/aardbol/opencode-server --cors https://example.com --verbose
-```
-
-Mount your own config to override:
-
-```bash
-podman run -d \
-  -v ./my-opencode.jsonc:/home/opencode/opencode.jsonc:ro \
+  -v ./my-opencode.jsonc:/home/opencode/.config/opencode/opencode.jsonc:ro \
   ghcr.io/aardbol/opencode-server
 ```
+
+In Kubernetes, the Helm chart mounts a ConfigMap at the same path and sets `OPENCODE_CONFIG` to it.
 
 ### Persistent workspace
 

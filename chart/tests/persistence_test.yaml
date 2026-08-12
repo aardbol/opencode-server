@@ -1,0 +1,61 @@
+suite: Persistence
+templates:
+  - pvc.yaml
+  - deployment.yaml
+release:
+  name: opencode
+tests:
+  - it: renders no PVC by default
+    template: pvc.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: provisions a PVC when persistence is enabled
+    set:
+      persistence.enabled: true
+      persistence.size: 5Gi
+    template: pvc.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PersistentVolumeClaim
+      - isAPIVersion:
+          of: v1
+      - equal:
+          path: metadata.name
+          value: opencode-pvc
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.resources.requests.storage
+          value: 5Gi
+
+  - it: uses an existing claim and renders no PVC
+    set:
+      persistence.enabled: true
+      persistence.existingClaim: my-claim
+    template: pvc.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: mounts the PVC in the deployment when persistence is enabled
+    set:
+      persistence.enabled: true
+      persistence.existingClaim: my-claim
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /home/opencode
+          any: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+          any: true

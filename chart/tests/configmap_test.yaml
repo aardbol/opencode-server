@@ -1,0 +1,58 @@
+suite: ConfigMap
+templates:
+  - configmap.yaml
+release:
+  name: opencode
+tests:
+  - it: renders the opencode.jsonc config with the server block
+    set:
+      config.enabled: true
+      config.content:
+        default_agent: plan
+        server:
+          port: 4096
+          hostname: "0.0.0.0"
+          cors: []
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: opencode-config
+      - matchRegex:
+          path: data["opencode.jsonc"]
+          pattern: '"server"'
+      - matchRegex:
+          path: data["opencode.jsonc"]
+          pattern: '"port":4096'
+      - matchRegex:
+          path: data["opencode.jsonc"]
+          pattern: '"hostname":"0.0.0.0"'
+      - matchRegex:
+          path: data["opencode.jsonc"]
+          pattern: 'schema.*opencode\.ai/config\.json'
+
+  - it: honors a custom server port in the config content
+    set:
+      config.enabled: true
+      config.content.server.port: 5000
+    asserts:
+      - matchRegex:
+          path: data["opencode.jsonc"]
+          pattern: '"port":5000'
+
+  - it: renders no ConfigMap when disabled
+    set:
+      config.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders no ConfigMap when an existing ConfigMap is referenced
+    set:
+      config.existingConfigMap: my-opencode-config
+    asserts:
+      - hasDocuments:
+          count: 0

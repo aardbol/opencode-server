@@ -1,0 +1,9 @@
+checks:
+  # The chart defaults image.tag to "latest".
+  # Users pin a specific tag via values.image.tag; the check is intentionally disabled here.
+  #
+  # The chart also defaults resources to {}; empty resources make kube-linter's unset-resource checks fire.
+  exclude:
+    - latest-tag
+    - unset-cpu-requirements
+    - unset-memory-requirements
