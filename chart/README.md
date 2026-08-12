@@ -1,6 +1,6 @@
 # OpenCode Server Helm Chart
 
-Helm chart for deploying the [OpenCode server](`ghcr.io/aardbol/opencode-server`) (`opencode serve`, a headless AI coding-agent HTTP API on port 4096) into Kubernetes.
+Helm chart for deploying the OpenCode server (`opencode serve`, a headless AI coding-agent HTTP API on port 4096) into Kubernetes.
 
 ## Install
 
