@@ -83,6 +83,7 @@ OPENCODE_CONFIG_DIR="$OPENCODE_HOME_DIR/.config/opencode"
 # Copy files directly into the container
 buildah copy --chown opencode:opencode "${CTR}" "${BINARY}" /usr/local/bin/opencode
 buildah run "${CTR}" -- mkdir -p "${OPENCODE_CONFIG_DIR}"
+buildah run "${CTR}" -- chown -R opencode:opencode "${OPENCODE_HOME_DIR}"
 buildah copy --chown opencode:opencode "${CTR}" opencode.jsonc "${OPENCODE_CONFIG_DIR}/opencode.jsonc"
 
 # Configure container
