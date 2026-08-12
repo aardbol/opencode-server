@@ -1,20 +1,17 @@
 # OpenCode Server Helm Chart
 
-Hardened Helm chart for deploying the OpenCode server
-(`opencode serve`, a headless AI coding-agent HTTP API on port 4096) into
-Kubernetes. Pairs with the `ghcr.io/aardbol/opencode-server` image.
+Helm chart for deploying the [OpenCode server](`ghcr.io/aardbol/opencode-server`) (`opencode serve`, a headless AI coding-agent HTTP API on port 4096) into Kubernetes.
 
 ## Install
 
 ```bash
-helm repo add opencode-server https://aardbol.github.io/opencode-server
-helm install opencode opencode-server/opencode -n opencode --create-namespace
+helm install opencode-server oci://ghcr.io/aardbol/opencode-server/charts/opencode-server
 ```
 
 Or from this repo:
 
 ```bash
-helm install opencode ./chart -n opencode --create-namespace
+helm install opencode-server ./chart
 ```
 
 ## Configuration
@@ -38,7 +35,7 @@ helm install opencode ./chart -n opencode --create-namespace
 | `config.enabled` | bool | `false` | Render and mount the opencode config ConfigMap. When `false`, the image's baked-in default is used. |
 | `config.path` | string | `/home/opencode/opencode.jsonc` | Mount path inside the container (matches image default). |
 | `config.existingConfigMap` | string | `""` | Use an existing ConfigMap (with an `opencode.jsonc` key) instead of generating one. |
-| `config.content` | object | `{}` | Body of `opencode.jsonc`. The `$schema` field is injected automatically. |
+| `config.content` | object | `{}` | Body of `opencode.jsonc`. |
 | `auth.basic.enabled` | bool | `false` | Enable HTTP basic auth. |
 | `auth.basic.username` | string | `opencode` | Basic-auth username. |
 | `auth.basic.password` | string | `""` | Basic-auth password (**set at install, not committed**). |
@@ -96,7 +93,7 @@ make schema-update
 Provider API keys are stored in a templated Secret and injected as env vars:
 
 ```bash
-helm install opencode ./chart \
+helm install opencode-server ./chart \
   --set auth.apiKeySecret.ANTHROPIC_API_KEY=sk-... \
   --set auth.basic.enabled=true \
   --set auth.basic.password=changeme
@@ -124,31 +121,4 @@ ingress:
       secretName: opencode-tls
 ```
 
-When exposing publicly, enable basic auth.
-
-## Persistence
-
-Enable to persist sessions/config across restarts:
-
-```yaml
-persistence:
-  enabled: true
-  size: 5Gi
-```
-
-## NetworkPolicy
-
-By default a deny-all NetworkPolicy is applied. DNS egress to `kube-system` is
-always allowed; add provider endpoints via `networkPolicy.egress`, e.g. to
-allow Anthropic:
-
-```yaml
-networkPolicy:
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-      ports:
-        - protocol: TCP
-          port: 443
-```
+When exposing publicly, enable basic auth or implement your own auth proxy.
