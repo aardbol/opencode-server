@@ -19,7 +19,20 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  e2e:
+    name: Chart e2e test
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run chart e2e tests
+        run: scripts/chart-e2e.sh
+
   chart-release:
+    needs: e2e
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:

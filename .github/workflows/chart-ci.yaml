@@ -7,6 +7,7 @@ on:
       - "artifacthub-repo.yml"
       - ".kube-linter.yaml"
       - "Makefile"
+      - "scripts/chart-e2e.sh"
       - ".github/workflows/chart-ci.yaml"
   push:
     branches:
@@ -16,13 +17,40 @@ on:
       - "artifacthub-repo.yml"
       - ".kube-linter.yaml"
       - "Makefile"
+      - "scripts/chart-e2e.sh"
       - ".github/workflows/chart-ci.yaml"
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      lint: ${{ steps.filter.outputs.lint }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            lint:
+              - 'chart/**'
+              - 'artifacthub-repo.yml'
+              - '.kube-linter.yaml'
+              - 'Makefile'
+            e2e:
+              - 'scripts/chart-e2e.sh'
+              - 'Makefile'
+
   lint:
+    needs: changes
+    if: ${{ needs.changes.outputs.lint == 'true' }}
     name: helm validation
     runs-on: ubuntu-24.04
     steps:
@@ -53,3 +81,14 @@ jobs:
           manifests: chart/
           lintType: kubeconform
           kubeconformOpts: -summary -strict -ignore-missing-schemas
+
+  e2e:
+    needs: changes
+    if: ${{ needs.changes.outputs.e2e == 'true' }}
+    name: chart e2e tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run chart e2e tests
+        run: scripts/chart-e2e.sh
