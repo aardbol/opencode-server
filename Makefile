@@ -27,11 +27,11 @@ helm-unit-tests:
 	fi
 	helm unittest $(CHART)
 
-## helm-dry-run: smoke-test helm install --dry-run=client with default and example values (includes schema validation)
+## helm-dry-run: smoke-render with default and example values (helm template includes schema validation, no cluster needed)
 helm-dry-run:
-	helm install $(IMAGE_TAG) $(CHART) --dry-run=client
-	helm install $(IMAGE_TAG) $(CHART) --dry-run=client -f $(CHART)/examples/values-ingress.yaml
-	helm install $(IMAGE_TAG) $(CHART) --dry-run=client -f $(CHART)/examples/values-persistence.yaml
+	helm template $(IMAGE_TAG) $(CHART)
+	helm template $(IMAGE_TAG) $(CHART) -f $(CHART)/examples/values-ingress.yaml
+	helm template $(IMAGE_TAG) $(CHART) -f $(CHART)/examples/values-persistence.yaml
 
 ## kube-linter: run static best-practice/security checks on the templates
 kube-linter:

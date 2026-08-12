@@ -37,7 +37,7 @@ jobs:
       - name: Helm unit tests
         run: make helm-unit-tests
 
-      - name: Helm install dry-run
+      - name: Helm render (schema validation)
         run: make helm-dry-run
 
       - name: Run kube-linter
