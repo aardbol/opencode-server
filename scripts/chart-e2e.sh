@@ -22,6 +22,7 @@ TIMEOUT="${TIMEOUT:-180}"
 RETRIES="${RETRIES:-30}"
 
 RELEASE="opencode"
+FULLNAME="${RELEASE}"
 HEALTH_URL="http://127.0.0.1:${LOCAL_PORT}/global/health"
 PORT_FORWARD_PID=""
 
@@ -54,11 +55,11 @@ install_and_wait() {
   kubectl --namespace "${NAMESPACE}" wait \
     --for=condition=Ready \
     --timeout="${TIMEOUT}s" \
-    pod -l app.kubernetes.io/name=opencode
+    pod -l app.kubernetes.io/instance=${RELEASE}
 
-  log "Port-forwarding svc/${RELEASE} ${LOCAL_PORT}:80"
+  log "Port-forwarding svc/${FULLNAME} ${LOCAL_PORT}:80"
   kubectl --namespace "${NAMESPACE}" port-forward \
-    "svc/${RELEASE}" "${LOCAL_PORT}:80" >/dev/null 2>&1 &
+    "svc/${FULLNAME}" "${LOCAL_PORT}:80" >/dev/null 2>&1 &
   PORT_FORWARD_PID=$!
 }
 
@@ -109,8 +110,8 @@ main() {
   install_and_wait \
     --set config.enabled=true \
     --set 'config.content.server.port=8080'
-  log "Verifying ConfigMap ${RELEASE}-config exists"
-  kubectl --namespace "${NAMESPACE}" get configmap "${RELEASE}-config"
+  log "Verifying ConfigMap ${FULLNAME}-config exists"
+  kubectl --namespace "${NAMESPACE}" get configmap "${FULLNAME}-config"
   assert_health 200 "${HEALTH_URL}"
   uninstall
 

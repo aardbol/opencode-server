@@ -26,4 +26,4 @@ tests:
           value: http
       - equal:
           path: spec.selector["app.kubernetes.io/name"]
-          value: opencode-server
+          value: opencode

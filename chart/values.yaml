@@ -11,7 +11,7 @@ image:
 # Credentials for pulling from container registries.
 imagePullSecrets: []
 # Override the chart name in the generated resource names.
-nameOverride: ""
+nameOverride: opencode
 # Fully override the generated resource names (overrides nameOverride).
 fullnameOverride: ""
 

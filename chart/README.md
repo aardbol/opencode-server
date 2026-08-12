@@ -5,13 +5,13 @@ Helm chart for deploying the OpenCode server (`opencode serve`, a headless AI co
 ## Install
 
 ```bash
-helm install opencode-server oci://ghcr.io/aardbol/opencode-server/charts/opencode-server
+helm install opencode oci://ghcr.io/aardbol/opencode-server/charts/opencode-server
 ```
 
 Or from this repo:
 
 ```bash
-helm install opencode-server ./chart
+helm install opencode ./chart
 ```
 
 ## Configuration
@@ -93,7 +93,7 @@ make schema-update
 Provider API keys are stored in a templated Secret and injected as env vars:
 
 ```bash
-helm install opencode-server ./chart \
+helm install opencode ./chart \
   --set auth.apiKeySecret.ANTHROPIC_API_KEY=sk-... \
   --set auth.basic.enabled=true \
   --set auth.basic.password=changeme
