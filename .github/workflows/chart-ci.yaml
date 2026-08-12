@@ -37,7 +37,7 @@ jobs:
       - name: Helm unit tests
         run: make helm-unit-tests
 
-      - name: Helm template (example overlays)
+      - name: Helm template test
         run: make helm-template
 
       - name: Run kube-linter
