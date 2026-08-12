@@ -1,5 +1,5 @@
 apiVersion: v2
-name: opencode
+name: opencode-server
 description: Hardened OpenCode server for Kubernetes
 type: application
 version: "1.0.0"

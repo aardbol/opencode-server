@@ -3,7 +3,7 @@ templates:
   - serviceaccount.yaml
   - pdb.yaml
 release:
-  name: opencode
+  name: opencode-server
 tests:
   - it: creates a ServiceAccount by default
     template: serviceaccount.yaml
@@ -14,7 +14,7 @@ tests:
           of: ServiceAccount
       - equal:
           path: metadata.name
-          value: opencode
+          value: opencode-server
 
   - it: renders no ServiceAccount when create is false
     template: serviceaccount.yaml

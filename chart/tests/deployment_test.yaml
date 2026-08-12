@@ -2,7 +2,7 @@ suite: Deployment defaults
 templates:
   - deployment.yaml
 release:
-  name: opencode
+  name: opencode-server
 tests:
   - it: renders a Deployment
     asserts:
@@ -14,7 +14,7 @@ tests:
           of: apps/v1
       - equal:
           path: metadata.name
-          value: opencode
+          value: opencode-server
 
   - it: uses the default replica count and selector labels
     asserts:
@@ -23,10 +23,10 @@ tests:
           value: 1
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/name"]
-          value: opencode
+          value: opencode-server
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/instance"]
-          value: opencode
+          value: opencode-server
 
   - it: sets the hardened pod security context
     asserts:
@@ -224,7 +224,7 @@ tests:
           value: kubernetes.io/hostname
       - equal:
           path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchLabels["app.kubernetes.io/name"]
-          value: opencode
+          value: opencode-server
 
   - it: keeps user-supplied affinity and merges the default anti-affinity
     set:
@@ -253,7 +253,7 @@ tests:
             - topologyKey: topology.kubernetes.io/zone
               labelSelector:
                 matchLabels:
-                  app.kubernetes.io/name: opencode
+                  app.kubernetes.io/name: opencode-server
     asserts:
       - equal:
           path: spec.template.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey
@@ -274,7 +274,7 @@ tests:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: opencode
+              app.kubernetes.io/name: opencode-server
     asserts:
       - equal:
           path: spec.template.spec.topologySpreadConstraints[0].maxSkew

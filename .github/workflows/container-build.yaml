@@ -20,6 +20,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
   packages: read
 
 env:
@@ -28,6 +29,10 @@ env:
 jobs:
   detect:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+      actions: write
     outputs:
       version: ${{ steps.detect.outputs.version }}
       revision: ${{ steps.detect.outputs.revision }}
@@ -92,6 +97,21 @@ jobs:
         with:
           version: ${{ steps.detect.outputs.version }}
 
+      - name: Upload build info for release workflow
+        if: steps.detect.outputs.should_build == 'true'
+        run: |
+          {
+            echo "version=${{ steps.detect.outputs.version }}"
+            echo "revision=${{ steps.detect.outputs.revision }}"
+          } > build-info.txt
+
+      - name: Upload build-info artifact
+        if: steps.detect.outputs.should_build == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: build-info
+          path: build-info.txt
+
   build:
     needs: detect
     if: needs.detect.outputs.should_build == 'true'
@@ -114,6 +134,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
+      actions: read
       packages: write
     env:
       IMAGE: ghcr.io/${{ github.repository }}
@@ -164,120 +185,3 @@ jobs:
         run: |
           buildah push "${IMAGE}:${{ steps.tags.outputs.image_tag }}" \
             "docker://${IMAGE}:${{ steps.tags.outputs.image_tag }}"
-
-  manifest:
-    needs: [detect, build]
-    if: needs.detect.outputs.should_build == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [alpine, debian]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    env:
-      IMAGE: ghcr.io/${{ github.repository }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
-
-      - uses: ./.github/actions/ghcr-login
-
-      - name: Set image tags
-        id: tags
-        run: |
-          VERSION="${{ needs.detect.outputs.version }}"
-          REVISION="${{ needs.detect.outputs.revision }}"
-          VARIANT="${{ matrix.variant }}"
-
-          if [ -z "${REVISION}" ]; then
-            # First build: no revision suffix
-            {
-              echo "amd64=v${VERSION}-${VARIANT}-amd64"
-              echo "arm64=v${VERSION}-${VARIANT}-arm64"
-              echo "manifest=v${VERSION}-${VARIANT}"
-            } >> "${GITHUB_OUTPUT}"
-          else
-            # Rebuild: include revision suffix
-            {
-              echo "amd64=v${VERSION}-${REVISION}-${VARIANT}-amd64"
-              echo "arm64=v${VERSION}-${REVISION}-${VARIANT}-arm64"
-              echo "manifest=v${VERSION}-${REVISION}-${VARIANT}"
-            } >> "${GITHUB_OUTPUT}"
-          fi
-
-      - name: Pull architecture images
-        run: |
-          buildah pull "docker://${IMAGE}:${{ steps.tags.outputs.amd64 }}"
-          buildah pull "docker://${IMAGE}:${{ steps.tags.outputs.arm64 }}"
-
-      - name: Create and push manifest
-        id: manifest
-        run: |
-          VARIANT="${{ matrix.variant }}"
-          MANIFEST="${{ steps.tags.outputs.manifest }}"
-
-          buildah manifest create "${MANIFEST}"
-          buildah manifest add "${MANIFEST}" "${IMAGE}:${{ steps.tags.outputs.amd64 }}"
-          buildah manifest add "${MANIFEST}" "${IMAGE}:${{ steps.tags.outputs.arm64 }}"
-
-          # Push revisioned manifest (immutable)
-          buildah manifest push --all --format v2s2 "${MANIFEST}" "docker://${IMAGE}:${MANIFEST}"
-
-          # Update latest tags (mutable)
-          buildah manifest push --all --format v2s2 "${MANIFEST}" "docker://${IMAGE}:latest-${VARIANT}"
-
-          if [ "${VARIANT}" = "alpine" ]; then
-            buildah manifest push --all --format v2s2 "${MANIFEST}" "docker://${IMAGE}:latest"
-          fi
-
-          DIGEST=$(oras resolve "${IMAGE}:${MANIFEST}")
-          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
-
-      - name: Generate SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
-        with:
-          image: ${{ env.IMAGE }}:${{ steps.tags.outputs.manifest }}
-          format: spdx-json
-          output-file: sbom.spdx.json
-
-      - name: Attach SBOM
-        run: |
-          DIGEST="${{ steps.manifest.outputs.digest }}"
-          oras attach --artifact-type application/spdx+json "${IMAGE}@${DIGEST}" sbom.spdx.json
-
-      - name: Setup cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Sign image
-        run: |
-          DIGEST="${{ steps.manifest.outputs.digest }}"
-          cosign sign --yes "${IMAGE}@${DIGEST}"
-
-      - name: Build summary
-        run: |
-          VERSION="${{ needs.detect.outputs.version }}"
-          REVISION="${{ needs.detect.outputs.revision }}"
-          VARIANT="${{ matrix.variant }}"
-          MANIFEST="${{ steps.tags.outputs.manifest }}"
-
-          if [ -z "${REVISION}" ]; then
-            DISPLAY_VERSION="v${VERSION}"
-          else
-            DISPLAY_VERSION="v${VERSION}-${REVISION}"
-          fi
-
-          {
-            echo "## Container image: ${VARIANT}"
-            echo ""
-            echo "| Field | Value |"
-            echo "|---|---|"
-            echo "| Image | \`${IMAGE}\` |"
-            echo "| Version | \`${DISPLAY_VERSION}\` |"
-            echo "| Tag | \`${MANIFEST}\` |"
-            echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |"
-            echo "| SBOM | SPDX JSON attached |"
-          } >> "${GITHUB_STEP_SUMMARY}"

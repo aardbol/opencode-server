@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 CHART := chart
-IMAGE_TAG ?= opencode
+IMAGE_TAG ?= opencode-server
 KUBECONFORM_OPTS ?= -summary -strict -ignore-missing-schemas
 
 .PHONY: helm-lint helm-template helm-unit-tests helm-dry-run kube-linter kubeconform schema-update all

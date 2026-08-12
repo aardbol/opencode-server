@@ -2,7 +2,7 @@ suite: ConfigMap
 templates:
   - configmap.yaml
 release:
-  name: opencode
+  name: opencode-server
 tests:
   - it: renders the opencode.jsonc config with the server block
     set:
@@ -20,7 +20,7 @@ tests:
           of: ConfigMap
       - equal:
           path: metadata.name
-          value: opencode-config
+          value: opencode-server-config
       - matchRegex:
           path: data["opencode.jsonc"]
           pattern: '"server"'
