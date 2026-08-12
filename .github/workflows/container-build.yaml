@@ -195,14 +195,18 @@ jobs:
 
           if [ -z "${REVISION}" ]; then
             # First build: no revision suffix
-            echo "amd64=v${VERSION}-${VARIANT}-amd64" >> "${GITHUB_OUTPUT}"
-            echo "arm64=v${VERSION}-${VARIANT}-arm64" >> "${GITHUB_OUTPUT}"
-            echo "manifest=v${VERSION}-${VARIANT}" >> "${GITHUB_OUTPUT}"
+            {
+              echo "amd64=v${VERSION}-${VARIANT}-amd64"
+              echo "arm64=v${VERSION}-${VARIANT}-arm64"
+              echo "manifest=v${VERSION}-${VARIANT}"
+            } >> "${GITHUB_OUTPUT}"
           else
             # Rebuild: include revision suffix
-            echo "amd64=v${VERSION}-${REVISION}-${VARIANT}-amd64" >> "${GITHUB_OUTPUT}"
-            echo "arm64=v${VERSION}-${REVISION}-${VARIANT}-arm64" >> "${GITHUB_OUTPUT}"
-            echo "manifest=v${VERSION}-${REVISION}-${VARIANT}" >> "${GITHUB_OUTPUT}"
+            {
+              echo "amd64=v${VERSION}-${REVISION}-${VARIANT}-amd64"
+              echo "arm64=v${VERSION}-${REVISION}-${VARIANT}-arm64"
+              echo "manifest=v${VERSION}-${REVISION}-${VARIANT}"
+            } >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Pull architecture images
