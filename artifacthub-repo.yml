@@ -1,24 +1,6 @@
-{
-  "name": "opencode-server",
-  "version": "1.18.15",
-  "displayName": "OpenCode Server",
-  "description": "Hardened OpenCode server container image and Helm chart.",
-  "provider": {
-    "name": "aardbol"
-  },
-  "homeURL": "https://github.com/aardbol/opencode-server",
-  "iconURL": "https://raw.githubusercontent.com/aardbol/opencode-server/main/chart/icon.png",
-  "maintainers": [
-    {
-      "name": "aardbol",
-      "url": "https://github.com/aardbol"
-    }
-  ],
-  "categories": [
-    "ai",
-    "development"
-  ],
-  "repositories": [],
-  "publishers": [],
-  "license": "MIT"
-}
+# Artifact Hub repository metadata
+# https://artifacthub.io/docs/topics/repositories/#artifacthub-repository-metadata
+repositoryID: a96bb4bb-ba82-429d-8b52-713d27882fac
+owners:
+  - name: aardbol
+    email: aardbol@github.repo
