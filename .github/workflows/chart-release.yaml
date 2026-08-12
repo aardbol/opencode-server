@@ -1,13 +1,14 @@
 name: Chart Release
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["Container Release"]
     types: [completed]
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 permissions:
@@ -20,7 +21,7 @@ env:
 jobs:
   chart-release:
     runs-on: ubuntu-24.04
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       actions: read
