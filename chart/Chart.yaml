@@ -19,7 +19,7 @@ maintainers:
 annotations:
   artifacthub.io/maintainers: |
     - name: aardbol
-  artifacthub.io/category: ai
+  artifacthub.io/category: ai-machine-learning
   artifacthub.io/license: MIT
   artifacthub.io/links: |
     - name: Support
