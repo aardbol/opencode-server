@@ -25,4 +25,5 @@ annotations:
     - name: Support
       url: https://github.com/aardbol/opencode-server/issues
   artifacthub.io/changes: |
-    - Initial chart: ConfigMap config, Secret API keys, deny-all NetworkPolicy with opt-in egress, optional PVC/PDB.
+    - "Initial chart release with support for opencode config, persistence, network policies and more features"
+    - "Support for opencode v1.18.16"
