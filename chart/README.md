@@ -2,6 +2,8 @@
 
 Helm chart for deploying the OpenCode server (`opencode serve`, a headless AI coding-agent HTTP API on port 4096) into Kubernetes.
 
+Chart releases are signed since v1.1.0.
+
 ## Install
 
 ```bash
