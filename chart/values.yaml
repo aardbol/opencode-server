@@ -3,9 +3,9 @@
 replicaCount: 1
 
 image:
-  # Container image repository and tag. Defaults to the Alpine variant, via the latest tag.
+  # Container image repository and tag. Defaults to the Alpine variant.
   repository: ghcr.io/aardbol/opencode-server
-  tag: latest
+  tag: v1.18.16-alpine
   pullPolicy: IfNotPresent
 
 # Credentials for pulling from container registries.
