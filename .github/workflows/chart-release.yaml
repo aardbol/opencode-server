@@ -115,6 +115,9 @@ jobs:
       - name: Setup cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
+      - name: Log in to GHCR with oras
+        run: oras login "${{ env.REGISTRY }}" -u "${{ github.actor }}" -p "${{ github.token }}"
+
       - name: Sign chart
         run: cosign sign --yes "${REGISTRY}/${{ github.repository }}/charts/opencode-server@${{ steps.digest.outputs.digest }}"
 
