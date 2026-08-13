@@ -1,12 +1,10 @@
 name: Chart Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      opencode_version:
-        description: "OpenCode version to release the chart for. e.g. 1.18.18"
-        required: false
-        type: string
+  push:
+    branches: [main]
+    paths:
+      - "chart/Chart.yaml"
   workflow_run:
     workflows: ["Container Release"]
     types: [completed]
@@ -26,13 +24,14 @@ env:
 jobs:
   detect:
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       actions: read
     outputs:
       opencode_version: ${{ steps.version.outputs.opencode_version }}
       chart_version: ${{ steps.version.outputs.chart_version }}
+      skip_update: ${{ steps.version.outputs.skip_update }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -47,28 +46,36 @@ jobs:
       - name: Resolve opencode version
         id: version
         run: |
-          if [ -n "${{ inputs.opencode_version }}" ]; then
-            OPENCODE_VERSION="${{ inputs.opencode_version }}"
-          elif [ -f version-info.txt ]; then
-            OPENCODE_VERSION=$(grep '^version=' version-info.txt | cut -d= -f2-)
-          else
-            OPENCODE_VERSION=$(grep '^appVersion:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          fi
-          [ -n "${OPENCODE_VERSION}" ] || { echo "could not resolve opencode version" >&2; exit 1; }
-
           CURRENT_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          MAJOR=$(echo "${CURRENT_VERSION}" | cut -d. -f1)
-          MINOR=$(echo "${CURRENT_VERSION}" | cut -d. -f2)
-          NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+          CURRENT_APPVERSION=$(grep '^appVersion:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Manual version bumps to main. Release those as-is.
+            OPENCODE_VERSION="${CURRENT_APPVERSION}"
+            CHART_VERSION="${CURRENT_VERSION}"
+            SKIP_UPDATE="true"
+            echo "Push event: releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+          else
+            OPENCODE_VERSION=$(grep '^version=' version-info.txt | cut -d= -f2-)
+            [ -n "${OPENCODE_VERSION}" ] || { echo "could not resolve opencode version" >&2; exit 1; }
+
+            # Auto-bump the chart minor version.
+            MAJOR=$(echo "${CURRENT_VERSION}" | cut -d. -f1)
+            MINOR=$(echo "${CURRENT_VERSION}" | cut -d. -f2)
+            CHART_VERSION="${MAJOR}.$((MINOR + 1)).0"
+            SKIP_UPDATE="false"
+            echo "Auto-bumping chart to ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+          fi
 
           echo "opencode_version=${OPENCODE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "chart_version=${NEW_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "Releasing chart ${NEW_VERSION} for opencode ${OPENCODE_VERSION}"
+          echo "chart_version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "skip_update=${SKIP_UPDATE}" >> "${GITHUB_OUTPUT}"
+          echo "Releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
 
   chart-release:
     needs: detect
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -82,7 +89,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Compute image tag
+        id: image
+        run: echo "image_tag=v${{ needs.detect.outputs.opencode_version }}-alpine" >> "${GITHUB_OUTPUT}"
+
       - name: Update chart files
+        if: ${{ needs.detect.outputs.skip_update != 'true' }}
         id: update
         env:
           OPENCODE_VERSION: ${{ needs.detect.outputs.opencode_version }}
@@ -95,14 +107,13 @@ jobs:
           sed -i "s/^appVersion: .*/appVersion: \"${OPENCODE_VERSION}\"/" chart/Chart.yaml
 
           # Update the artifacthub.io/changes annotation.
-          sed -i "s/\[VERSION\]/${OPENCODE_VERSION}/" chart/Chart.yaml
+          sed -i "s/Support for opencode v[0-9.]*/Support for opencode v${OPENCODE_VERSION}/" chart/Chart.yaml
 
           # Point the chart at the specific built image.
           sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
 
-          echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
-
       - name: Commit and push chart version bump
+        if: ${{ needs.detect.outputs.skip_update != 'true' }}
         run: |
           git add chart/Chart.yaml chart/values.yaml
           if git diff --cached --quiet; then
@@ -152,7 +163,7 @@ jobs:
             echo "| Chart | \`${REGISTRY}/${{ github.repository }}/charts/opencode-server\` |"
             echo "| Version | \`${{ steps.push.outputs.version }}\` |"
             echo "| AppVersion | \`${{ needs.detect.outputs.opencode_version }}\` |"
-            echo "| Image | \`${{ steps.update.outputs.image_tag }}\` |"
+            echo "| Image | \`${{ steps.image.outputs.image_tag }}\` |"
             echo "| Digest | \`${{ steps.digest.outputs.digest }}\` |"
             echo "| Signature | cosign keyless (Sigstore) |"
           } >> "${GITHUB_STEP_SUMMARY}"
