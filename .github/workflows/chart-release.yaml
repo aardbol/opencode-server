@@ -1,7 +1,10 @@
 name: Chart Release
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "chart/Chart.yaml"
   workflow_run:
     workflows: ["Container Release"]
     types: [completed]
@@ -19,29 +22,106 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  e2e:
-    name: Chart e2e test
+  detect:
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Run chart e2e tests
-        run: scripts/chart-e2e.sh
-
-  chart-release:
-    needs: e2e
-    runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       actions: read
+    outputs:
+      opencode_version: ${{ steps.version.outputs.opencode_version }}
+      chart_version: ${{ steps.version.outputs.chart_version }}
+      skip_update: ${{ steps.version.outputs.skip_update }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download version-info artifact
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: version-info
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve opencode version
+        id: version
+        run: |
+          CURRENT_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+          CURRENT_APPVERSION=$(grep '^appVersion:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Manual version bumps to main. Release those as-is.
+            OPENCODE_VERSION="${CURRENT_APPVERSION}"
+            CHART_VERSION="${CURRENT_VERSION}"
+            SKIP_UPDATE="true"
+            echo "Push event: releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+          else
+            OPENCODE_VERSION=$(grep '^version=' version-info.txt | cut -d= -f2-)
+            [ -n "${OPENCODE_VERSION}" ] || { echo "could not resolve opencode version" >&2; exit 1; }
+
+            # Auto-bump the chart minor version.
+            MAJOR=$(echo "${CURRENT_VERSION}" | cut -d. -f1)
+            MINOR=$(echo "${CURRENT_VERSION}" | cut -d. -f2)
+            CHART_VERSION="${MAJOR}.$((MINOR + 1)).0"
+            SKIP_UPDATE="false"
+            echo "Auto-bumping chart to ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+          fi
+
+          echo "opencode_version=${OPENCODE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "chart_version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "skip_update=${SKIP_UPDATE}" >> "${GITHUB_OUTPUT}"
+          echo "Releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+
+  chart-release:
+    needs: detect
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      actions: read
+      contents: write
       packages: write
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Compute image tag
+        id: image
+        run: echo "image_tag=v${{ needs.detect.outputs.opencode_version }}-alpine" >> "${GITHUB_OUTPUT}"
+
+      - name: Update chart files
+        if: ${{ needs.detect.outputs.skip_update != 'true' }}
+        id: update
+        env:
+          OPENCODE_VERSION: ${{ needs.detect.outputs.opencode_version }}
+          CHART_VERSION: ${{ needs.detect.outputs.chart_version }}
+        run: |
+          IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
+
+          # Update Chart.yaml version and appVersion.
+          sed -i "s/^version: .*/version: \"${CHART_VERSION}\"/" chart/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${OPENCODE_VERSION}\"/" chart/Chart.yaml
+
+          # Update the artifacthub.io/changes annotation.
+          sed -i "s/Support for opencode v[0-9.]*/Support for opencode v${OPENCODE_VERSION}/" chart/Chart.yaml
+
+          # Point the chart at the specific built image.
+          sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
+
+      - name: Commit and push chart version bump
+        if: ${{ needs.detect.outputs.skip_update != 'true' }}
+        run: |
+          git add chart/Chart.yaml chart/values.yaml
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(chart): release ${{ needs.detect.outputs.chart_version }} for opencode v${{ needs.detect.outputs.opencode_version }}"
+            git push
+          fi
 
       - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
 
@@ -56,9 +136,7 @@ jobs:
         run: |
           CHART_TGZ=$(ls /tmp/charts/opencode-server-*.tgz)
           helm push "${CHART_TGZ}" "oci://${REGISTRY}/${{ github.repository }}/charts"
-
-          CHART_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          echo "version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "version=${{ needs.detect.outputs.chart_version }}" >> "${GITHUB_OUTPUT}"
 
       - name: Resolve chart digest
         id: digest
@@ -68,6 +146,9 @@ jobs:
 
       - name: Setup cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Log in to GHCR with oras
+        run: oras login "${{ env.REGISTRY }}" -u "${{ github.actor }}" -p "${{ github.token }}"
 
       - name: Sign chart
         run: cosign sign --yes "${REGISTRY}/${{ github.repository }}/charts/opencode-server@${{ steps.digest.outputs.digest }}"
@@ -81,6 +162,8 @@ jobs:
             echo "|---|---|"
             echo "| Chart | \`${REGISTRY}/${{ github.repository }}/charts/opencode-server\` |"
             echo "| Version | \`${{ steps.push.outputs.version }}\` |"
+            echo "| AppVersion | \`${{ needs.detect.outputs.opencode_version }}\` |"
+            echo "| Image | \`${{ steps.image.outputs.image_tag }}\` |"
             echo "| Digest | \`${{ steps.digest.outputs.digest }}\` |"
             echo "| Signature | cosign keyless (Sigstore) |"
           } >> "${GITHUB_STEP_SUMMARY}"
