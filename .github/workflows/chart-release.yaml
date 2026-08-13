@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       opencode_version:
-        description: "OpenCode version to release the chart for."
+        description: "OpenCode version to release the chart for. e.g. 1.18.18"
         required: false
         type: string
   workflow_run:
