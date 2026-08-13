@@ -52,10 +52,25 @@ install_and_wait() {
     "$@"
 
   log "Waiting for pods to become Ready (${TIMEOUT}s)"
-  kubectl --namespace "${NAMESPACE}" wait \
-    --for=condition=Ready \
-    --timeout="${TIMEOUT}s" \
-    pod -l app.kubernetes.io/instance=${RELEASE}
+  local ready=""
+  local deadline=$((SECONDS + TIMEOUT))
+  while (( SECONDS < deadline )); do
+    if kubectl --namespace "${NAMESPACE}" wait \
+      --for=condition=Ready \
+      --timeout=2s \
+      pod -l app.kubernetes.io/instance=${RELEASE} >/dev/null 2>&1; then
+      ready="yes"
+      break
+    fi
+    sleep 2
+  done
+  if [[ -z "${ready}" ]]; then
+    log "Pod wait failed. Debugging info:"
+    kubectl --namespace "${NAMESPACE}" get pods -o wide
+    kubectl --namespace "${NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -20
+    kubectl --namespace "${NAMESPACE}" describe pod -l app.kubernetes.io/instance=${RELEASE} || true
+    fail "Pods did not become Ready"
+  fi
 
   log "Port-forwarding svc/${FULLNAME} ${LOCAL_PORT}:80"
   kubectl --namespace "${NAMESPACE}" port-forward \
