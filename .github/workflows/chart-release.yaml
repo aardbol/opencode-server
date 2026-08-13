@@ -2,6 +2,11 @@ name: Chart Release
 
 on:
   workflow_dispatch:
+    inputs:
+      opencode_version:
+        description: "OpenCode version to release the chart for."
+        required: false
+        type: string
   workflow_run:
     workflows: ["Container Release"]
     types: [completed]
@@ -19,7 +24,49 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      opencode_version: ${{ steps.version.outputs.opencode_version }}
+      chart_version: ${{ steps.version.outputs.chart_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download version-info artifact
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: version-info
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve opencode version
+        id: version
+        run: |
+          if [ -n "${{ inputs.opencode_version }}" ]; then
+            OPENCODE_VERSION="${{ inputs.opencode_version }}"
+          elif [ -f version-info.txt ]; then
+            OPENCODE_VERSION=$(grep '^version=' version-info.txt | cut -d= -f2-)
+          else
+            OPENCODE_VERSION=$(grep '^appVersion:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+          fi
+          [ -n "${OPENCODE_VERSION}" ] || { echo "could not resolve opencode version" >&2; exit 1; }
+
+          CURRENT_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+          MAJOR=$(echo "${CURRENT_VERSION}" | cut -d. -f1)
+          MINOR=$(echo "${CURRENT_VERSION}" | cut -d. -f2)
+          NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
+
+          echo "opencode_version=${OPENCODE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "chart_version=${NEW_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "Releasing chart ${NEW_VERSION} for opencode ${OPENCODE_VERSION}"
+
   chart-release:
+    needs: detect
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
@@ -35,17 +82,29 @@ jobs:
       - name: Log in to GHCR
         run: echo '${{ github.token }}' | helm registry login "${{ env.REGISTRY }}" -u '${{ github.actor }}' --password-stdin
 
-      - name: Package chart
-        run: helm package chart --destination /tmp/charts
+      - name: Pin image tag and package chart
+        id: package
+        run: |
+          OPENCODE_VERSION="${{ needs.detect.outputs.opencode_version }}"
+          CHART_VERSION="${{ needs.detect.outputs.chart_version }}"
+          IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
+
+          # Point the chart at the specific built image instead of "latest".
+          sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
+
+          helm package chart \
+            --app-version "${OPENCODE_VERSION}" \
+            --version "${CHART_VERSION}" \
+            --destination /tmp/charts
+
+          echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
 
       - name: Push chart to GHCR
         id: push
         run: |
           CHART_TGZ=$(ls /tmp/charts/opencode-server-*.tgz)
           helm push "${CHART_TGZ}" "oci://${REGISTRY}/${{ github.repository }}/charts"
-
-          CHART_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          echo "version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "version=${{ needs.detect.outputs.chart_version }}" >> "${GITHUB_OUTPUT}"
 
       - name: Resolve chart digest
         id: digest
@@ -68,6 +127,8 @@ jobs:
             echo "|---|---|"
             echo "| Chart | \`${REGISTRY}/${{ github.repository }}/charts/opencode-server\` |"
             echo "| Version | \`${{ steps.push.outputs.version }}\` |"
+            echo "| AppVersion | \`${{ needs.detect.outputs.opencode_version }}\` |"
+            echo "| Image | \`${{ steps.package.outputs.image_tag }}\` |"
             echo "| Digest | \`${{ steps.digest.outputs.digest }}\` |"
             echo "| Signature | cosign keyless (Sigstore) |"
           } >> "${GITHUB_STEP_SUMMARY}"
