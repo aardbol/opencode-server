@@ -57,7 +57,7 @@ podman run -d \
 - tini as PID 1 (zombie reaping, signal forwarding)
 - 3-layer final image (minimal attack surface)
 - SHA256 verification of opencode binary at build time
-- Images signed with cosign (keyless)
+- Releases are signed with cosign (keyless)
 
 ## Verify image signature
 
