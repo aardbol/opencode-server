@@ -70,34 +70,60 @@ jobs:
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
-      contents: read
       actions: read
+      contents: write
       packages: write
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update chart files
+        id: update
+        env:
+          OPENCODE_VERSION: ${{ needs.detect.outputs.opencode_version }}
+          CHART_VERSION: ${{ needs.detect.outputs.chart_version }}
+        run: |
+          IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
+
+          # Update Chart.yaml version and appVersion.
+          yq e -i ".version = \"${CHART_VERSION}\"" chart/Chart.yaml
+          yq e -i ".appVersion = \"${OPENCODE_VERSION}\"" chart/Chart.yaml
+
+          # Prepend a changelog entry to the artifacthub.io/changes annotation.
+          CURRENT_CHANGES=$(yq e '.annotations["artifacthub.io/changes"]' chart/Chart.yaml)
+          NEW_CHANGES="- kind: added
+          description: Support for opencode v${OPENCODE_VERSION}
+          ${CURRENT_CHANGES}"
+          export NEW_CHANGES
+          yq e -i '.annotations["artifacthub.io/changes"] = strenv(NEW_CHANGES)' chart/Chart.yaml
+
+          # Point the chart at the specific built image instead of "latest".
+          yq e -i ".image.tag = \"${IMAGE_TAG}\"" chart/values.yaml
+
+          echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Commit and push chart version bump
+        run: |
+          git add chart/Chart.yaml chart/values.yaml
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(chart): release ${{ needs.detect.outputs.chart_version }} for opencode v${{ needs.detect.outputs.opencode_version }}"
+            git push
+          fi
 
       - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
 
       - name: Log in to GHCR
         run: echo '${{ github.token }}' | helm registry login "${{ env.REGISTRY }}" -u '${{ github.actor }}' --password-stdin
 
-      - name: Pin image tag and package chart
-        id: package
-        run: |
-          OPENCODE_VERSION="${{ needs.detect.outputs.opencode_version }}"
-          CHART_VERSION="${{ needs.detect.outputs.chart_version }}"
-          IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
-
-          # Point the chart at the specific built image instead of "latest".
-          sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
-
-          helm package chart \
-            --app-version "${OPENCODE_VERSION}" \
-            --version "${CHART_VERSION}" \
-            --destination /tmp/charts
-
-          echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
+      - name: Package chart
+        run: helm package chart --destination /tmp/charts
 
       - name: Push chart to GHCR
         id: push
@@ -131,7 +157,7 @@ jobs:
             echo "| Chart | \`${REGISTRY}/${{ github.repository }}/charts/opencode-server\` |"
             echo "| Version | \`${{ steps.push.outputs.version }}\` |"
             echo "| AppVersion | \`${{ needs.detect.outputs.opencode_version }}\` |"
-            echo "| Image | \`${{ steps.package.outputs.image_tag }}\` |"
+            echo "| Image | \`${{ steps.update.outputs.image_tag }}\` |"
             echo "| Digest | \`${{ steps.digest.outputs.digest }}\` |"
             echo "| Signature | cosign keyless (Sigstore) |"
           } >> "${GITHUB_STEP_SUMMARY}"
