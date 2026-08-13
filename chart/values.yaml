@@ -1,20 +1,24 @@
 # Number of OpenCode server replicas.
 # Sessions are in-memory and not shared, unless persistence is on.
 replicaCount: 1
+
 image:
   # Container image repository and tag. Defaults to the Alpine variant.
   repository: ghcr.io/aardbol/opencode-server
-  tag: v1.18.18-alpine
+  tag: v1.18.16-alpine
   pullPolicy: IfNotPresent
+
 # Credentials for pulling from container registries.
 imagePullSecrets: []
 # Override the chart name in the generated resource names.
 nameOverride: ""
 # Fully override the generated resource names (overrides nameOverride).
 fullnameOverride: ""
+
 podAnnotations: {}
 # Extra labels applied to the pod (merged with the default set in _helpers.tpl).
 podLabels: {}
+
 serviceAccount:
   # Create a dedicated ServiceAccount for the Deployment.
   create: true
@@ -23,6 +27,7 @@ serviceAccount:
   # Mount the Kubernetes API token into the pod. Keep false unless the server needs to talk to the cluster API (it does not by default).
   automount: false
   annotations: {}
+
 # Pod-level security context. The image runs as the non-root `opencode` user (uid 10001)
 securityContext:
   runAsNonRoot: true
@@ -31,6 +36,7 @@ securityContext:
   fsGroup: 10001
   seccompProfile:
     type: RuntimeDefault
+
 # Container-level security context: minimal privileges, read-only root filesystem.
 containerSecurityContext:
   allowPrivilegeEscalation: false
@@ -38,8 +44,10 @@ containerSecurityContext:
   capabilities:
     drop:
       - ALL
+
 # Extra environment variables for the container
 env: []
+
 # Health probe settings. Set a probe's `enabled` to false to omit it entirely.
 probes:
   # Shared httpGet target for all probes.
@@ -64,6 +72,7 @@ probes:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
+
 # Opencode server configuration
 config:
   # Render and mount the ConfigMap. When false, the image's simple default is used.
@@ -82,6 +91,7 @@ config:
   #     port: 4096
   #     hostname: "0.0.0.0"
   #     cors: []
+
 auth:
   # If set, the chart skips generating a Secret and references this one instead
   existingSecret: ""
@@ -90,6 +100,7 @@ auth:
   apiKeySecret: {}
   # Annotations on the generated Secret.
   secretAnnotations: {}
+  
   # HTTP basic authentication
   basic:
     enabled: false
@@ -101,6 +112,8 @@ auth:
     existingSecret: ""
     # Password is mutually exclusive with `existingSecret`.
     password: ""
+
+
 service:
   # ClusterIP is the safe default. Prefer an Ingress for external access.
   type: ClusterIP
@@ -108,6 +121,7 @@ service:
   # Static load balancer IP for type: LoadBalancer (cloud-provider dependent).
   annotations: {}
   labels: {}
+
 ingress:
   # Disabled by default. Enable for external HTTP(S) access; pair with auth.basic when exposing publicly.
   enabled: false
@@ -119,6 +133,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls: []
+
 persistence:
   # Persist /home/opencode sessions across restarts.
   enabled: false
@@ -131,6 +146,7 @@ persistence:
   size: 1Gi
   mountPath: /home/opencode
   annotations: {}
+
 # Deny-by-default NetworkPolicy (ingress + egress).
 networkPolicy:
   enabled: false
@@ -138,6 +154,7 @@ networkPolicy:
   dnsNamespace: kube-system
   # Additional egress rules. The default rule only permits DNS.
   egress: []
+
 resources: {}
 #  requests:
 #    cpu: 250m
@@ -151,10 +168,14 @@ pdb:
   enabled: false
   minAvailable: 1
   maxUnavailable: null
+
 nodeSelector: {}
+
 tolerations: []
+
 # Node/pod placement rules. A soft podAntiAffinity is applied by default and merged with any affinity you set here.
 affinity: {}
+
 # Spread replicas across nodes or zones.
 topologySpreadConstraints: []
 #  - maxSkew: 1
