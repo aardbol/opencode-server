@@ -91,19 +91,14 @@ jobs:
           IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
 
           # Update Chart.yaml version and appVersion.
-          yq e -i ".version = \"${CHART_VERSION}\"" chart/Chart.yaml
-          yq e -i ".appVersion = \"${OPENCODE_VERSION}\"" chart/Chart.yaml
+          sed -i "s/^version: .*/version: \"${CHART_VERSION}\"/" chart/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${OPENCODE_VERSION}\"/" chart/Chart.yaml
 
-          # Prepend a changelog entry to the artifacthub.io/changes annotation.
-          CURRENT_CHANGES=$(yq e '.annotations["artifacthub.io/changes"]' chart/Chart.yaml)
-          NEW_CHANGES="- kind: added
-          description: Support for opencode v${OPENCODE_VERSION}
-          ${CURRENT_CHANGES}"
-          export NEW_CHANGES
-          yq e -i '.annotations["artifacthub.io/changes"] = strenv(NEW_CHANGES)' chart/Chart.yaml
+          # Update the artifacthub.io/changes annotation.
+          sed -i "s/\[VERSION\]/${OPENCODE_VERSION}/" chart/Chart.yaml
 
-          # Point the chart at the specific built image instead of "latest".
-          yq e -i ".image.tag = \"${IMAGE_TAG}\"" chart/values.yaml
+          # Point the chart at the specific built image.
+          sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
 
           echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
 

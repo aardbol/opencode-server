@@ -27,6 +27,4 @@ annotations:
       url: https://github.com/aardbol/opencode-server/issues
   artifacthub.io/changes: |
     - kind: added
-      description: Initial chart release with support for opencode config, persistence, network policies and more features
-    - kind: added
-      description: Support for opencode v1.18.16
+      description: Support for opencode v[VERSION]
