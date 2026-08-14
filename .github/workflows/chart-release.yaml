@@ -25,9 +25,6 @@ jobs:
   detect:
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
-    permissions:
-      contents: read
-      actions: read
     outputs:
       opencode_version: ${{ steps.version.outputs.opencode_version }}
       chart_version: ${{ steps.version.outputs.chart_version }}
