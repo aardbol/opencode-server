@@ -125,7 +125,8 @@ main() {
   # ConfigMap is created and the health endpoint answers on the new port.
   install_and_wait \
     --set config.enabled=true \
-    --set 'config.content.server.port=8080'
+    --set 'config.content.server.port=8080' \
+    --set 'config.content.server.hostname=0.0.0.0'
   log "Verifying ConfigMap ${FULLNAME}-config exists"
   kubectl --namespace "${NAMESPACE}" get configmap "${FULLNAME}-config"
   assert_health 200 "${HEALTH_URL}"
