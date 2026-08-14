@@ -5,13 +5,13 @@ replicaCount: 1
 image:
   # Container image repository and tag. Defaults to the Alpine variant.
   repository: ghcr.io/aardbol/opencode-server
-  tag: v1.18.16-alpine
+  tag: v1.18.18-alpine
   pullPolicy: IfNotPresent
 
 # Credentials for pulling from container registries.
 imagePullSecrets: []
 # Override the chart name in the generated resource names.
-nameOverride: ""
+nameOverride: opencode
 # Fully override the generated resource names (overrides nameOverride).
 fullnameOverride: ""
 
@@ -48,26 +48,24 @@ containerSecurityContext:
 # Extra environment variables for the container
 env: []
 
-# Health probe settings. Set a probe's `enabled` to false to omit it entirely.
+# Health probe settings. Probes are rendered automatically: they are active when auth is off or a literal auth.basic.password
+# is set (probes also require authentication), and omitted when the password comes from an existingSecret.
 probes:
   # Shared httpGet target for all probes.
   path: /global/health
   port: http
   # Startup probe gives the server time to boot before liveness takes over.
   startup:
-    enabled: true
     initialDelaySeconds: 5
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 30
   liveness:
-    enabled: true
     initialDelaySeconds: 10
     periodSeconds: 15
     timeoutSeconds: 5
     failureThreshold: 3
   readiness:
-    enabled: true
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
@@ -78,8 +76,9 @@ config:
   # Render and mount the ConfigMap. When false, the image's simple default is used.
   # This option needs to be true to use either `existingConfigMap` or `content` options.
   enabled: false
-  # Mount path inside the container. OPENCODE_CONFIG is set to this value so this can be any valid path.
-  path: /home/opencode/opencode.jsonc
+  # Mount path inside the container. Matches the image's baked-in default config so the server
+  # picks it up via its global config loading.
+  path: /home/opencode/.config/opencode/opencode.jsonc
   # Reference an existing ConfigMap (with an opencode.jsonc key) instead of generating one from `content`.
   # Mutually exclusive with `content`.
   existingConfigMap: ""

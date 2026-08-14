@@ -24,6 +24,12 @@ Basic auth is enabled.
 WARNING: Basic auth is disabled. The server is open to anyone with network access.
 {{- end }}
 
+{{- if and .Values.auth.basic.enabled (not .Values.auth.basic.password) }}
+
+WARNING: Health probes are disabled because the basic-auth password comes from an existingSecret and is not available at render time. Kubernetes probes cannot authenticate, so liveness/readiness/startup checks are omitted. To enable them,
+set auth.basic.password or exempt /global/health from authentication.
+{{- end }}
+
 {{- if not .Values.config.enabled }}
 
 Using the image's default config. Set config.enabled: true to override.

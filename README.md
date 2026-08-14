@@ -39,7 +39,7 @@ podman run -d \
   ghcr.io/aardbol/opencode-server
 ```
 
-In Kubernetes, the Helm chart mounts a ConfigMap at the same path and sets `OPENCODE_CONFIG` to it.
+In Kubernetes, the Helm chart mounts a ConfigMap at the same path.
 
 ### Persistent workspace
 

@@ -23,7 +23,7 @@ tests:
           value: 1
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/name"]
-          value: opencode-server
+          value: opencode
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/instance"]
           value: opencode-server
@@ -119,12 +119,44 @@ tests:
           path: spec.template.spec.containers[0].startupProbe.failureThreshold
           value: 30
 
+  - it: adds basic-auth headers to all probes when a literal password is set
+    set:
+      auth.basic.enabled: true
+      auth.basic.password: e2e-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.httpHeaders[0].name
+          value: Authorization
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.httpHeaders[0].value
+          value: Basic b3BlbmNvZGU6ZTJlLXNlY3JldA==
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.httpHeaders[0].name
+          value: Authorization
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.httpHeaders[0].value
+          value: Basic b3BlbmNvZGU6ZTJlLXNlY3JldA==
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders[0].name
+          value: Authorization
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders[0].value
+          value: Basic b3BlbmNvZGU6ZTJlLXNlY3JldA==
+
+  - it: omits auth headers when basic auth is disabled
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.httpHeaders
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.httpHeaders
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders
+
   - it: uses a custom probe path and timings when configured
     set:
       probes:
         path: /custom/healthz
         liveness:
-          enabled: true
           initialDelaySeconds: 30
           periodSeconds: 60
           timeoutSeconds: 10
@@ -149,11 +181,10 @@ tests:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.path
           value: /custom/healthz
 
-  - it: omits a probe when disabled
+  - it: omits all probes when basic auth uses an existingSecret
     set:
-      probes.liveness.enabled: false
-      probes.readiness.enabled: false
-      probes.startup.enabled: false
+      auth.basic.enabled: true
+      auth.basic.existingSecret: my-secret
     asserts:
       - notExists:
           path: spec.template.spec.containers[0].livenessProbe
@@ -162,7 +193,19 @@ tests:
       - notExists:
           path: spec.template.spec.containers[0].startupProbe
 
-  - it: mounts config and sets env when config.enabled is true
+  - it: keeps probes when basic auth uses a literal password
+    set:
+      auth.basic.enabled: true
+      auth.basic.password: e2e-secret
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - exists:
+          path: spec.template.spec.containers[0].readinessProbe
+      - exists:
+          path: spec.template.spec.containers[0].startupProbe
+
+  - it: mounts config when config.enabled is true
     set:
       config.enabled: true
       config.content:
@@ -176,7 +219,7 @@ tests:
           path: spec.template.spec.containers[0].volumeMounts
           content:
             name: config
-            mountPath: /home/opencode/opencode.jsonc
+            mountPath: /home/opencode/.config/opencode/opencode.jsonc
             subPath: opencode.jsonc
             readOnly: true
       - contains:
@@ -184,11 +227,6 @@ tests:
           content:
             name: config
           any: true
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: OPENCODE_CONFIG
-            value: /home/opencode/opencode.jsonc
 
   - it: decouples containerPort from service.port when config sets a different server port
     set:
@@ -224,7 +262,7 @@ tests:
           value: kubernetes.io/hostname
       - equal:
           path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchLabels["app.kubernetes.io/name"]
-          value: opencode-server
+          value: opencode
 
   - it: keeps user-supplied affinity and merges the default anti-affinity
     set:

@@ -25,9 +25,6 @@ jobs:
   detect:
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
-    permissions:
-      contents: read
-      actions: read
     outputs:
       opencode_version: ${{ steps.version.outputs.opencode_version }}
       chart_version: ${{ steps.version.outputs.chart_version }}
@@ -67,9 +64,11 @@ jobs:
             echo "Auto-bumping chart to ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
           fi
 
-          echo "opencode_version=${OPENCODE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "chart_version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "skip_update=${SKIP_UPDATE}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "opencode_version=${OPENCODE_VERSION}"
+            echo "chart_version=${CHART_VERSION}"
+            echo "skip_update=${SKIP_UPDATE}"
+          } >> "${GITHUB_OUTPUT}"
           echo "Releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
 
   chart-release:
