@@ -30,9 +30,7 @@ helm install opencode ./chart
 | `containerSecurityContext` | object | see values | Container securityContext (read-only root, drop ALL). |
 | `env` | list | `[]` | Extra env vars. |
 | `probes.path` | string | `/global/health` | Shared health path for all probes. |
-| `probes.startup.enabled` | bool | `true` | Enable the startup probe. |
-| `probes.liveness.enabled` | bool | `true` | Enable the liveness probe. |
-| `probes.readiness.enabled` | bool | `true` | Enable the readiness probe. |
+| `probes.startup.initialDelaySeconds` | int | `5` | Startup probe initial delay. |
 | `probes.liveness.initialDelaySeconds` | int | `10` | Liveness initial delay (per-probe timings also configurable). |
 | `config.enabled` | bool | `false` | Render and mount the opencode config ConfigMap. When `false`, the image's baked-in default is used. |
 | `config.path` | string | `/home/opencode/.config/opencode/opencode.jsonc` | Mount path inside the container. |
@@ -100,6 +98,11 @@ helm install opencode ./chart \
   --set auth.basic.enabled=true \
   --set auth.basic.password=changeme
 ```
+
+When `auth.basic.password` is set, the health probes automatically send the Basic-auth header so liveness/readiness/startup
+checks pass. If you use `auth.basic.existingSecret` instead, the password isn't available at render time and the probes are omitted entirely. The chart warns you about this at install time.
+
+To keep probes active, set `auth.basic.password` or exempt `/global/health` from authentication.
 
 For production secrets, create your own Secret and set `auth.existingSecret`.
 

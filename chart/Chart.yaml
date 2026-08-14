@@ -29,4 +29,6 @@ annotations:
     - kind: added
       description: Support for opencode v1.18.18
     - kind: fixed
-      description: removed OPENCODE_CONFIG because its implementation in opencode is buggy
+      description: Removed OPENCODE_CONFIG because its implementation in opencode is buggy
+    - kind: fixed
+      description: Probes needed authentication to access /global/health

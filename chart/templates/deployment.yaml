@@ -59,36 +59,39 @@ spec:
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- if or (not $.Values.auth.basic.enabled) $.Values.auth.basic.password }}
           {{- with .Values.probes.startup }}
-          {{- if .enabled }}
           startupProbe:
             httpGet:
               path: {{ $.Values.probes.path }}
               port: {{ $.Values.probes.port }}
+              {{- include "opencode.probeAuth" $ | nindent 14 }}
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             timeoutSeconds: {{ .timeoutSeconds }}
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
+          {{- if or (not $.Values.auth.basic.enabled) $.Values.auth.basic.password }}
           {{- with .Values.probes.liveness }}
-          {{- if .enabled }}
           livenessProbe:
             httpGet:
               path: {{ $.Values.probes.path }}
               port: {{ $.Values.probes.port }}
+              {{- include "opencode.probeAuth" $ | nindent 14 }}
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             timeoutSeconds: {{ .timeoutSeconds }}
             failureThreshold: {{ .failureThreshold }}
           {{- end }}
           {{- end }}
+          {{- if or (not $.Values.auth.basic.enabled) $.Values.auth.basic.password }}
           {{- with .Values.probes.readiness }}
-          {{- if .enabled }}
           readinessProbe:
             httpGet:
               path: {{ $.Values.probes.path }}
               port: {{ $.Values.probes.port }}
+              {{- include "opencode.probeAuth" $ | nindent 14 }}
             initialDelaySeconds: {{ .initialDelaySeconds }}
             periodSeconds: {{ .periodSeconds }}
             timeoutSeconds: {{ .timeoutSeconds }}

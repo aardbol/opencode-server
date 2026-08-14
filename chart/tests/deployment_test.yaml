@@ -119,12 +119,44 @@ tests:
           path: spec.template.spec.containers[0].startupProbe.failureThreshold
           value: 30
 
+  - it: adds basic-auth headers to all probes when a literal password is set
+    set:
+      auth.basic.enabled: true
+      auth.basic.password: e2e-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.httpHeaders[0].name
+          value: Authorization
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.httpHeaders[0].value
+          value: Basic b3BlbmNvZGU6ZTJlLXNlY3JldA==
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.httpHeaders[0].name
+          value: Authorization
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.httpHeaders[0].value
+          value: Basic b3BlbmNvZGU6ZTJlLXNlY3JldA==
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders[0].name
+          value: Authorization
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders[0].value
+          value: Basic b3BlbmNvZGU6ZTJlLXNlY3JldA==
+
+  - it: omits auth headers when basic auth is disabled
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.httpHeaders
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.httpHeaders
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.httpHeaders
+
   - it: uses a custom probe path and timings when configured
     set:
       probes:
         path: /custom/healthz
         liveness:
-          enabled: true
           initialDelaySeconds: 30
           periodSeconds: 60
           timeoutSeconds: 10
@@ -149,17 +181,28 @@ tests:
           path: spec.template.spec.containers[0].readinessProbe.httpGet.path
           value: /custom/healthz
 
-  - it: omits a probe when disabled
+  - it: omits all probes when basic auth uses an existingSecret
     set:
-      probes.liveness.enabled: false
-      probes.readiness.enabled: false
-      probes.startup.enabled: false
+      auth.basic.enabled: true
+      auth.basic.existingSecret: my-secret
     asserts:
       - notExists:
           path: spec.template.spec.containers[0].livenessProbe
       - notExists:
           path: spec.template.spec.containers[0].readinessProbe
       - notExists:
+          path: spec.template.spec.containers[0].startupProbe
+
+  - it: keeps probes when basic auth uses a literal password
+    set:
+      auth.basic.enabled: true
+      auth.basic.password: e2e-secret
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - exists:
+          path: spec.template.spec.containers[0].readinessProbe
+      - exists:
           path: spec.template.spec.containers[0].startupProbe
 
   - it: mounts config when config.enabled is true

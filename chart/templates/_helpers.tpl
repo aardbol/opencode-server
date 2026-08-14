@@ -98,6 +98,18 @@ Secret name: user-provided, basic-auth secret, or generated.
 {{- end }}
 
 {{/*
+Basic-auth header for probes. Rendered only when a literal password is set;
+with auth.basic.existingSecret the password is not available at render time.
+*/}}
+{{- define "opencode.probeAuth" -}}
+{{- if and .Values.auth.basic.enabled .Values.auth.basic.password }}
+httpHeaders:
+  - name: Authorization
+    value: Basic {{ printf "%s:%s" .Values.auth.basic.username .Values.auth.basic.password | b64enc }}
+{{- end }}
+{{- end }}
+
+{{/*
 PVC name.
 */}}
 {{- define "opencode.pvcName" -}}

@@ -48,26 +48,24 @@ containerSecurityContext:
 # Extra environment variables for the container
 env: []
 
-# Health probe settings. Set a probe's `enabled` to false to omit it entirely.
+# Health probe settings. Probes are rendered automatically: they are active when auth is off or a literal auth.basic.password
+# is set (probes also require authentication), and omitted when the password comes from an existingSecret.
 probes:
   # Shared httpGet target for all probes.
   path: /global/health
   port: http
   # Startup probe gives the server time to boot before liveness takes over.
   startup:
-    enabled: true
     initialDelaySeconds: 5
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 30
   liveness:
-    enabled: true
     initialDelaySeconds: 10
     periodSeconds: 15
     timeoutSeconds: 5
     failureThreshold: 3
   readiness:
-    enabled: true
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
