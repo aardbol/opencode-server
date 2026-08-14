@@ -162,7 +162,7 @@ tests:
       - notExists:
           path: spec.template.spec.containers[0].startupProbe
 
-  - it: mounts config and sets env when config.enabled is true
+  - it: mounts config when config.enabled is true
     set:
       config.enabled: true
       config.content:
@@ -176,7 +176,7 @@ tests:
           path: spec.template.spec.containers[0].volumeMounts
           content:
             name: config
-            mountPath: /home/opencode/opencode.jsonc
+            mountPath: /home/opencode/.config/opencode/opencode.jsonc
             subPath: opencode.jsonc
             readOnly: true
       - contains:
@@ -184,11 +184,6 @@ tests:
           content:
             name: config
           any: true
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: OPENCODE_CONFIG
-            value: /home/opencode/opencode.jsonc
 
   - it: decouples containerPort from service.port when config sets a different server port
     set:

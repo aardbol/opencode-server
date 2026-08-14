@@ -35,7 +35,7 @@ helm install opencode ./chart
 | `probes.readiness.enabled` | bool | `true` | Enable the readiness probe. |
 | `probes.liveness.initialDelaySeconds` | int | `10` | Liveness initial delay (per-probe timings also configurable). |
 | `config.enabled` | bool | `false` | Render and mount the opencode config ConfigMap. When `false`, the image's baked-in default is used. |
-| `config.path` | string | `/home/opencode/opencode.jsonc` | Mount path inside the container (matches image default). |
+| `config.path` | string | `/home/opencode/.config/opencode/opencode.jsonc` | Mount path inside the container. |
 | `config.existingConfigMap` | string | `""` | Use an existing ConfigMap (with an `opencode.jsonc` key) instead of generating one. |
 | `config.content` | object | `{}` | Body of `opencode.jsonc`. |
 | `auth.basic.enabled` | bool | `false` | Enable HTTP basic auth. |

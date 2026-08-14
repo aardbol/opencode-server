@@ -78,8 +78,9 @@ config:
   # Render and mount the ConfigMap. When false, the image's simple default is used.
   # This option needs to be true to use either `existingConfigMap` or `content` options.
   enabled: false
-  # Mount path inside the container. OPENCODE_CONFIG is set to this value so this can be any valid path.
-  path: /home/opencode/opencode.jsonc
+  # Mount path inside the container. Matches the image's baked-in default config so the server
+  # picks it up via its global config loading.
+  path: /home/opencode/.config/opencode/opencode.jsonc
   # Reference an existing ConfigMap (with an opencode.jsonc key) instead of generating one from `content`.
   # Mutually exclusive with `content`.
   existingConfigMap: ""
