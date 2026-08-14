@@ -69,14 +69,15 @@ install_and_wait() {
     kubectl --namespace "${NAMESPACE}" get pods -o wide
     kubectl --namespace "${NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -20
     kubectl --namespace "${NAMESPACE}" describe pod -l app.kubernetes.io/instance=${RELEASE} || true
+
     log "Container logs:"
     kubectl --namespace "${NAMESPACE}" logs -l app.kubernetes.io/instance=${RELEASE} --tail=50 || true
+
     fail "Pods did not become Ready"
   fi
 
   log "Port-forwarding svc/${FULLNAME} ${LOCAL_PORT}:80"
-  kubectl --namespace "${NAMESPACE}" port-forward \
-    "svc/${FULLNAME}" "${LOCAL_PORT}:80" >/dev/null 2>&1 &
+  kubectl --namespace "${NAMESPACE}" port-forward "svc/${FULLNAME}" "${LOCAL_PORT}:80" >/dev/null 2>&1 &
   PORT_FORWARD_PID=$!
 }
 
@@ -129,6 +130,7 @@ main() {
     --set config.enabled=true \
     --set 'config.content.server.port=8080' \
     --set 'config.content.server.hostname=0.0.0.0'
+
   log "Verifying ConfigMap ${FULLNAME}-config exists"
   kubectl --namespace "${NAMESPACE}" get configmap "${FULLNAME}-config"
   assert_health 200 "${HEALTH_URL}"
