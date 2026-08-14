@@ -69,6 +69,8 @@ install_and_wait() {
     kubectl --namespace "${NAMESPACE}" get pods -o wide
     kubectl --namespace "${NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -20
     kubectl --namespace "${NAMESPACE}" describe pod -l app.kubernetes.io/instance=${RELEASE} || true
+    log "Container logs:"
+    kubectl --namespace "${NAMESPACE}" logs -l app.kubernetes.io/instance=${RELEASE} --tail=50 || true
     fail "Pods did not become Ready"
   fi
 
