@@ -71,8 +71,18 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
           echo "Releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
 
-  chart-release:
+  e2e:
     needs: detect
+    runs-on: ubuntu-24.04
+    name: chart e2e tests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run chart e2e tests
+        run: scripts/chart-e2e.sh
+
+  chart-release:
+    needs: [detect, e2e]
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
