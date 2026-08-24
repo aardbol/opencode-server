@@ -7,7 +7,7 @@ Chart releases are signed since v1.1.0.
 ## Install
 
 ```bash
-helm install opencode oci://ghcr.io/aardbol/opencode-server/charts/opencode-server
+helm install opencode oci://ghcr.io/aardbol/charts/opencode-server
 ```
 
 Or from this repo:

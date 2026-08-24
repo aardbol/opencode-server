@@ -4,7 +4,7 @@ CHART := chart
 IMAGE_TAG ?= opencode-server
 KUBECONFORM_OPTS ?= -summary -strict -ignore-missing-schemas
 
-.PHONY: helm-lint helm-template helm-unit-tests helm-dry-run helm-e2e helm-test kube-linter kubeconform schema-update all
+.PHONY: helm-lint helm-template helm-unit-tests helm-dry-run helm-e2e helm-test helm-package helm-release-notes kube-linter kubeconform schema-update all
 
 ## schema-update: refresh the bundled opencode config schema and inline it into values.schema.json
 schema-update:
@@ -55,3 +55,13 @@ all: helm-lint helm-template helm-unit-tests helm-dry-run kube-linter kubeconfor
 
 ## helm-test: lint, unit-test and template-render the chart (used by upstream lint-helm workflow)
 helm-test: helm-lint helm-unit-tests helm-template
+
+## helm-package: package the chart into dist/ (used by upstream release-helm-chart workflow)
+helm-package:
+	mkdir -p dist
+	helm package $(CHART) --destination dist
+
+## helm-release-notes: print chart release notes to stdout (used by upstream release-helm-chart workflow)
+helm-release-notes:
+	@APP=$$(grep '^appVersion:' $(CHART)/Chart.yaml | awk '{print $$2}' | tr -d '"'); \
+	echo "OpenCode $$APP — chart release"

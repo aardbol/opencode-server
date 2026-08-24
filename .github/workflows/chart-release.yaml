@@ -28,11 +28,13 @@ jobs:
     runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
-      opencode_version: ${{ steps.version.outputs.opencode_version }}
-      chart_version: ${{ steps.version.outputs.chart_version }}
-      skip_update: ${{ steps.version.outputs.skip_update }}
+      opencode_version: ${{ steps.resolve.outputs.opencode_version }}
+      chart_version: ${{ steps.resolve.outputs.chart_version }}
+      skip_release: ${{ steps.resolve.outputs.skip_release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
 
       - name: Download version-info artifact
         if: ${{ github.event_name == 'workflow_run' }}
@@ -42,56 +44,61 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve opencode version
-        id: version
-        run: |
-          CURRENT_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          CURRENT_APPVERSION=$(grep '^appVersion:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+      - name: Read versions from Chart.yaml
+        id: versions
+        uses: ./.github/actions/gha-actions/detect-versions/action.yaml
+        with:
+          chart_dir: chart
 
-          if [ "${{ github.event_name }}" = "push" ]; then
-            # Manual version bumps to main. Release those as-is.
-            OPENCODE_VERSION="${CURRENT_APPVERSION}"
-            CHART_VERSION="${CURRENT_VERSION}"
-            SKIP_UPDATE="true"
-            echo "Push event: releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+      - name: Resolve release plan
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          APP_VERSION: ${{ steps.versions.outputs.app_version }}
+          CHART_VERSION: ${{ steps.versions.outputs.chart_version }}
+          CHART_RELEASE_EXISTS: ${{ steps.versions.outputs.chart_release_exists }}
+        run: |
+          set -euo pipefail
+
+          if [ "${EVENT}" = "push" ]; then
+            OPENCODE_VERSION="${APP_VERSION}"
+            CHART_VERSION_OUT="${CHART_VERSION}"
+            if [ "${CHART_RELEASE_EXISTS}" = "true" ]; then
+              echo "Chart ${CHART_VERSION_OUT} already released; skipping."
+              SKIP="true"
+            else
+              SKIP="false"
+            fi
           else
             OPENCODE_VERSION=$(grep '^version=' version-info.txt | cut -d= -f2-)
             [ -n "${OPENCODE_VERSION}" ] || { echo "could not resolve opencode version" >&2; exit 1; }
 
-            # Auto-bump the chart minor version.
-            MAJOR=$(echo "${CURRENT_VERSION}" | cut -d. -f1)
-            MINOR=$(echo "${CURRENT_VERSION}" | cut -d. -f2)
-            CHART_VERSION="${MAJOR}.$((MINOR + 1)).0"
-            SKIP_UPDATE="false"
-            echo "Auto-bumping chart to ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+            MAJOR=$(echo "${CHART_VERSION}" | cut -d. -f1)
+            MINOR=$(echo "${CHART_VERSION}" | cut -d. -f2)
+            CHART_VERSION_OUT="${MAJOR}.$((MINOR + 1)).0"
+
+            if gh release view "helm-v${CHART_VERSION_OUT}" > /dev/null 2>&1; then
+              echo "Target chart ${CHART_VERSION_OUT} already released; skipping."
+              SKIP="true"
+            else
+              SKIP="false"
+            fi
           fi
 
           {
             echo "opencode_version=${OPENCODE_VERSION}"
-            echo "chart_version=${CHART_VERSION}"
-            echo "skip_update=${SKIP_UPDATE}"
+            echo "chart_version=${CHART_VERSION_OUT}"
+            echo "skip_release=${SKIP}"
           } >> "${GITHUB_OUTPUT}"
-          echo "Releasing chart ${CHART_VERSION} for opencode ${OPENCODE_VERSION}"
+          echo "opencode=${OPENCODE_VERSION} chart=${CHART_VERSION_OUT} skip=${SKIP}"
 
-  e2e:
+  bump:
     needs: detect
+    if: ${{ github.event_name == 'workflow_run' && needs.detect.outputs.skip_release != 'true' }}
     runs-on: ubuntu-24.04
-    name: chart e2e tests
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Run chart e2e tests
-        run: scripts/chart-e2e.sh
-
-  chart-release:
-    needs: [detect, e2e]
-    runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
-      actions: read
       contents: write
-      packages: write
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -100,31 +107,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Compute image tag
-        id: image
-        run: echo "image_tag=v${{ needs.detect.outputs.opencode_version }}-alpine" >> "${GITHUB_OUTPUT}"
-
-      - name: Update chart files
-        if: ${{ needs.detect.outputs.skip_update != 'true' }}
-        id: update
+      - name: Bump chart version
         env:
           OPENCODE_VERSION: ${{ needs.detect.outputs.opencode_version }}
           CHART_VERSION: ${{ needs.detect.outputs.chart_version }}
         run: |
           IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
-
-          # Update Chart.yaml version and appVersion.
           sed -i "s/^version: .*/version: \"${CHART_VERSION}\"/" chart/Chart.yaml
           sed -i "s/^appVersion: .*/appVersion: \"${OPENCODE_VERSION}\"/" chart/Chart.yaml
-
-          # Update the artifacthub.io/changes annotation.
           sed -i "s/Support for opencode v[0-9.]*/Support for opencode v${OPENCODE_VERSION}/" chart/Chart.yaml
-
-          # Point the chart at the specific built image.
           sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
 
       - name: Commit and push chart version bump
-        if: ${{ needs.detect.outputs.skip_update != 'true' }}
         run: |
           git add chart/Chart.yaml chart/values.yaml
           if git diff --cached --quiet; then
@@ -134,47 +128,25 @@ jobs:
             git push
           fi
 
-      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+  e2e:
+    needs: detect
+    if: ${{ github.event_name == 'push' && needs.detect.outputs.skip_release != 'true' }}
+    name: chart e2e tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Log in to GHCR
-        run: echo '${{ github.token }}' | helm registry login "${{ env.REGISTRY }}" -u '${{ github.actor }}' --password-stdin
+      - name: Run chart e2e tests
+        run: scripts/chart-e2e.sh
 
-      - name: Package chart
-        run: helm package chart --destination /tmp/charts
-
-      - name: Push chart to GHCR
-        id: push
-        run: |
-          CHART_TGZ=$(ls /tmp/charts/opencode-server-*.tgz)
-          helm push "${CHART_TGZ}" "oci://${REGISTRY}/${{ github.repository }}/charts"
-          echo "version=${{ needs.detect.outputs.chart_version }}" >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve chart digest
-        id: digest
-        run: |
-          DIGEST=$(oras resolve "${REGISTRY}/${{ github.repository }}/charts/opencode-server:${{ steps.push.outputs.version }}")
-          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
-
-      - name: Setup cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Log in to GHCR with oras
-        run: oras login "${{ env.REGISTRY }}" -u "${{ github.actor }}" -p "${{ github.token }}"
-
-      - name: Sign chart
-        run: cosign sign --yes "${REGISTRY}/${{ github.repository }}/charts/opencode-server@${{ steps.digest.outputs.digest }}"
-
-      - name: Release summary
-        run: |
-          {
-            echo "## Helm chart released"
-            echo ""
-            echo "| Field | Value |"
-            echo "|---|---|"
-            echo "| Chart | \`${REGISTRY}/${{ github.repository }}/charts/opencode-server\` |"
-            echo "| Version | \`${{ steps.push.outputs.version }}\` |"
-            echo "| AppVersion | \`${{ needs.detect.outputs.opencode_version }}\` |"
-            echo "| Image | \`${{ steps.image.outputs.image_tag }}\` |"
-            echo "| Digest | \`${{ steps.digest.outputs.digest }}\` |"
-            echo "| Signature | cosign keyless (Sigstore) |"
-          } >> "${GITHUB_STEP_SUMMARY}"
+  release:
+    needs: [detect, e2e]
+    if: ${{ github.event_name == 'push' && needs.detect.outputs.skip_release != 'true' }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: upcloud-tools/gha-actions/.github/workflows/release-helm-chart.yaml@c0df829cbad57268497db8cfb6174419f925b283
+    with:
+      chart_dir: chart
+      chart_version: ${{ needs.detect.outputs.chart_version }}
