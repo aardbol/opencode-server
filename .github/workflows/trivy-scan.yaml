@@ -14,6 +14,8 @@ jobs:
   trivy:
     permissions:
       contents: read
+      actions: read
+      packages: read
       security-events: write
     uses: upcloud-tools/gha-actions/.github/workflows/trivy.yaml@c0df829cbad57268497db8cfb6174419f925b283
     with:
