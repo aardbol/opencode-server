@@ -77,10 +77,6 @@ Both variants ship with tools the OpenCode agent needs at runtime:
 
 `bash`, `git`, `curl`, `jq`, `python3`, `ripgrep`, `openssh-client`, `tini`, `unzip`, `xz`, `zip`
 
-A native C/C++ compiler toolchain is intentionally **not** included in the
-runtime image, to keep the attack surface minimal. Build compiled code
-elsewhere and copy the artifacts in if needed.
-
 ## License
 
 [MIT](LICENSE)

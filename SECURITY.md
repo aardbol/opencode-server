@@ -14,8 +14,9 @@ Please report security vulnerabilities privately using
 
 Do **not** open public issues for security vulnerabilities.
 
-You can reach the maintainers at <https://github.com/aardbol> if you need to
-discuss a sensitive report before filing.
+You can reach the maintainers at
+<https://github.com/upcloud-tools/karpenter-provider-upcloud/security> if you
+need to discuss a sensitive report before filing.
 
 ## Image provenance
 
