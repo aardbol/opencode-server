@@ -7,7 +7,7 @@ export BASE_IMAGE="alpine:3.23"
 install_packages() {
   local ctr="$1"
   buildah run "${ctr}" -- apk add --no-cache \
-    bash build-base ca-certificates curl git jq openssh-client pkgconf python3 ripgrep tini unzip xz zip
+    bash ca-certificates curl git jq openssh-client pkgconf python3 ripgrep tini unzip xz zip
 }
 
 create_user() {

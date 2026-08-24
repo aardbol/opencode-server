@@ -61,6 +61,8 @@ podman run -d \
 - SHA256 verification of opencode binary at build time
 - Releases are signed with cosign (keyless)
 
+See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
+
 ## Verify image signature
 
 ```bash
@@ -74,6 +76,10 @@ cosign verify ghcr.io/aardbol/opencode-server:latest \
 Both variants ship with tools the OpenCode agent needs at runtime:
 
 `bash`, `git`, `curl`, `jq`, `python3`, `ripgrep`, `openssh-client`, `tini`, `unzip`, `xz`, `zip`
+
+A native C/C++ compiler toolchain is intentionally **not** included in the
+runtime image, to keep the attack surface minimal. Build compiled code
+elsewhere and copy the artifacts in if needed.
 
 ## License
 

@@ -10,9 +10,12 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   id-token: write
 
 jobs:
   scorecard:
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
     uses: upcloud-tools/gha-actions/.github/workflows/scorecard.yaml@c0df829cbad57268497db8cfb6174419f925b283
