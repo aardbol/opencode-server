@@ -2,8 +2,8 @@ apiVersion: v2
 name: opencode-server
 description: Hardened OpenCode server for Kubernetes
 type: application
-version: "1.3.0"
-appVersion: "1.18.21"
+version: "1.4.0"
+appVersion: "1.18.22"
 keywords:
   - ai
   - coding-agent
@@ -27,7 +27,7 @@ annotations:
       url: https://github.com/aardbol/opencode-server/issues
   artifacthub.io/changes: |
     - kind: added
-      description: Support for opencode v1.18.21
+      description: Support for opencode v1.18.22
     - kind: fixed
       description: Removed OPENCODE_CONFIG because its implementation in opencode is buggy
     - kind: fixed
