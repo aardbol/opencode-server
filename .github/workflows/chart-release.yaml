@@ -33,6 +33,8 @@ jobs:
       skip_release: ${{ steps.resolve.outputs.skip_release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
 
       - name: Download version-info artifact
         if: ${{ github.event_name == 'workflow_run' }}
@@ -44,7 +46,7 @@ jobs:
 
       - name: Read versions from Chart.yaml
         id: versions
-        uses: upcloud-tools/gha-actions/detect-versions/action.yaml@c0df829cbad57268497db8cfb6174419f925b283
+        uses: ./.github/gha-actions/detect-versions
         with:
           chart_dir: chart
 
