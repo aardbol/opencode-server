@@ -180,6 +180,11 @@ jobs:
   call-container-release:
     needs: [detect, build]
     if: ${{ needs.detect.outputs.should_build == 'true' }}
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+      id-token: write
     uses: ./.github/workflows/container-release.yaml
     with:
       version: ${{ needs.detect.outputs.version }}

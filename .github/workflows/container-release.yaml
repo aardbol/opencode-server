@@ -140,6 +140,11 @@ jobs:
 
   call-chart-release:
     needs: manifest
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+      id-token: write
     uses: ./.github/workflows/chart-release.yaml
     with:
       opencode_version: ${{ inputs.version }}
