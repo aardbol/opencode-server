@@ -1,6 +1,6 @@
 # opencode-server
 
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/aardbol/opencode-server/badge)](https://securityscorecards.dev/viewer/?uri=github.com/aardbol/opencode-server)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aardbol/opencode-server/badge)](https://scorecard.dev/viewer/?uri=github.com/aardbol/opencode-server)
 
 Hardened [OpenCode](https://github.com/anomalyco/opencode) server container images with automated CI/CD, for running it on a remote host/kubernetes cluster.
 
