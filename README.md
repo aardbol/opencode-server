@@ -61,6 +61,8 @@ podman run -d \
 - SHA256 verification of opencode binary at build time
 - Releases are signed with cosign (keyless)
 
+See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
+
 ## Verify image signature
 
 ```bash

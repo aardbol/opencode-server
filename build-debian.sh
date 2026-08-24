@@ -8,7 +8,7 @@ install_packages() {
   local ctr="$1"
   buildah run "${ctr}" -- sh -c "apt-get update && \
     apt-get install -y --no-install-recommends \
-      build-essential ca-certificates curl git jq openssh-client pkg-config python3 ripgrep tini unzip xz-utils zip && \
+      ca-certificates curl git jq openssh-client pkg-config python3 ripgrep tini unzip xz-utils zip && \
     rm -rf /var/lib/apt/lists/*"
 }
 

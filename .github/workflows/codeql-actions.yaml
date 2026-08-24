@@ -13,8 +13,11 @@ on:
 permissions:
   contents: read
   actions: read
-  security-events: write
 
 jobs:
   analyze:
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     uses: upcloud-tools/gha-actions/.github/workflows/codeql-actions.yaml@c0df829cbad57268497db8cfb6174419f925b283

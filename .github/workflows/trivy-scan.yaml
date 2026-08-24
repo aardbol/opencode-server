@@ -9,10 +9,12 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   trivy:
+    permissions:
+      contents: read
+      security-events: write
     uses: upcloud-tools/gha-actions/.github/workflows/trivy.yaml@c0df829cbad57268497db8cfb6174419f925b283
     with:
       image_repo: ghcr.io/${{ github.repository }}
