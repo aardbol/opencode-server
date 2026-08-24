@@ -52,35 +52,11 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.lint == 'true' }}
     name: helm validation
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Helm lint
-        run: make helm-lint
-
-      - name: Helm unit tests
-        run: make helm-unit-tests
-
-      - name: Helm template test
-        run: make helm-template
-
-      - name: Run kube-linter
-        uses: stackrox/kube-linter-action@87802a2f4e01abebb3ee3c67a3002fea71f6eae5 # v1.0.7
-        with:
-          directory: chart
-          config: .kube-linter.yaml
-          format: plain
-
-      - name: Run kubeconform
-        uses: aardbol/k8s-lint@4676a66f5a37b93f2cf75ecbe498d770b9d7d2ce # v5.1.0
-        with:
-          manifests: chart/
-          lintType: kubeconform
-          kubeconformOpts: -summary -strict -ignore-missing-schemas
+    permissions:
+      contents: read
+    uses: upcloud-tools/gha-actions/.github/workflows/lint-helm.yaml@c0df829cbad57268497db8cfb6174419f925b283
+    with:
+      chart_dir: chart
 
   e2e:
     needs: changes

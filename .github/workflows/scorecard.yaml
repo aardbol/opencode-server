@@ -1,0 +1,18 @@
+name: OpenSSF Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "0 6 * * 1"
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  security-events: write
+  id-token: write
+
+jobs:
+  scorecard:
+    uses: upcloud-tools/gha-actions/.github/workflows/scorecard.yaml@c0df829cbad57268497db8cfb6174419f925b283

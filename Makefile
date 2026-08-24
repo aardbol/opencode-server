@@ -4,7 +4,7 @@ CHART := chart
 IMAGE_TAG ?= opencode-server
 KUBECONFORM_OPTS ?= -summary -strict -ignore-missing-schemas
 
-.PHONY: helm-lint helm-template helm-unit-tests helm-dry-run helm-e2e kube-linter kubeconform schema-update all
+.PHONY: helm-lint helm-template helm-unit-tests helm-dry-run helm-e2e helm-test kube-linter kubeconform schema-update all
 
 ## schema-update: refresh the bundled opencode config schema and inline it into values.schema.json
 schema-update:
@@ -52,3 +52,6 @@ kubeconform:
 
 ## all: run the full local validation suite
 all: helm-lint helm-template helm-unit-tests helm-dry-run kube-linter kubeconform
+
+## helm-test: lint, unit-test and template-render the chart (used by upstream lint-helm workflow)
+helm-test: helm-lint helm-unit-tests helm-template

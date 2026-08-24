@@ -1,0 +1,3 @@
+# Trivy ignore rules for filesystem scans of this repository.
+# Add vulnerability IDs or glob paths to suppress, one per line.
+# See https://trivy.dev/latest/docs/configuration/filtering/

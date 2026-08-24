@@ -46,7 +46,7 @@ jobs:
 
       - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
 
-      - uses: ./.github/actions/ghcr-login
+      - uses: upcloud-tools/gha-actions/ghcr-login/action.yaml@c0df829cbad57268497db8cfb6174419f925b283
 
       - name: Detect version and revision
         id: detect
@@ -141,7 +141,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: ./.github/actions/ghcr-login
+      - uses: upcloud-tools/gha-actions/ghcr-login/action.yaml@c0df829cbad57268497db8cfb6174419f925b283
 
       - name: Set checksum
         id: shas

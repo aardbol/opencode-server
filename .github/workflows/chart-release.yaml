@@ -2,13 +2,15 @@ name: Chart Release
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "chart/Chart.yaml"
   workflow_run:
     workflows: ["Container Release"]
     types: [completed]
-    branches: [main]
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.id || github.run_id }}
