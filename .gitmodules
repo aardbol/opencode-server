@@ -1,3 +1,0 @@
-[submodule ".github/actions/gha-actions"]
-	path = .github/actions/gha-actions
-	url = https://github.com/upcloud-tools/gha-actions.git
