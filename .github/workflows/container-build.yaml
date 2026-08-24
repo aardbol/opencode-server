@@ -99,20 +99,7 @@ jobs:
         with:
           version: ${{ steps.detect.outputs.version }}
 
-      - name: Upload build info for release workflow
-        if: steps.detect.outputs.should_build == 'true'
-        run: |
-          {
-            echo "version=${{ steps.detect.outputs.version }}"
-            echo "revision=${{ steps.detect.outputs.revision }}"
-          } > build-info.txt
 
-      - name: Upload build-info artifact
-        if: steps.detect.outputs.should_build == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: build-info
-          path: build-info.txt
 
   build:
     needs: detect
@@ -189,3 +176,12 @@ jobs:
         run: |
           buildah push "${IMAGE}:${{ steps.tags.outputs.image_tag }}" \
             "docker://${IMAGE}:${{ steps.tags.outputs.image_tag }}"
+
+  call-container-release:
+    needs: [detect, build]
+    if: ${{ needs.detect.outputs.should_build == 'true' }}
+    uses: ./.github/workflows/container-release.yaml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      revision: ${{ needs.detect.outputs.revision }}
+    secrets: inherit

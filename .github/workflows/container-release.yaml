@@ -1,14 +1,18 @@
 name: Container Release
 
 on:
-  workflow_run:
-    workflows: ["Container Build"]
-    types: [completed]
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      revision:
+        required: false
+        type: string
+        default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}
+  group: ${{ github.workflow }}-${{ inputs.version }}-${{ inputs.revision }}
   cancel-in-progress: false
 
 permissions:
@@ -20,62 +24,7 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
-  detect:
-    runs-on: ubuntu-24.04
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    outputs:
-      version: ${{ steps.buildinfo.outputs.version }}
-      revision: ${{ steps.buildinfo.outputs.revision }}
-      should_release: ${{ steps.check.outputs.should_release }}
-    steps:
-      - name: Check for build-info artifact
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts" \
-               --jq '.artifacts[] | select(.name=="build-info") | .id' | grep -q .; then
-            echo "should_release=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "should_release=false" >> "${GITHUB_OUTPUT}"
-            echo "No build-info artifact (no new build) - skipping release."
-          fi
-
-      - name: Download build-info artifact
-        if: steps.check.outputs.should_release == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: build-info
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Read version and revision
-        id: buildinfo
-        if: steps.check.outputs.should_release == 'true'
-        run: |
-          VERSION=$(grep '^version=' build-info.txt | cut -d= -f2-)
-          REVISION=$(grep '^revision=' build-info.txt | cut -d= -f2-)
-          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "revision=${REVISION}" >> "${GITHUB_OUTPUT}"
-          echo "Release version=${VERSION} revision=${REVISION}"
-
-      - name: Upload version info for chart release
-        if: steps.check.outputs.should_release == 'true'
-        run: |
-          {
-            echo "version=${{ steps.buildinfo.outputs.version }}"
-            echo "revision=${{ steps.buildinfo.outputs.revision }}"
-          } > version-info.txt
-
-      - name: Upload version-info artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: version-info
-          path: version-info.txt
-
   manifest:
-    needs: detect
-    if: ${{ github.event.workflow_run.conclusion == 'success' && needs.detect.outputs.should_release == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -98,19 +47,17 @@ jobs:
       - name: Set image tags
         id: tags
         run: |
-          VERSION="${{ needs.detect.outputs.version }}"
-          REVISION="${{ needs.detect.outputs.revision }}"
+          VERSION="${{ inputs.version }}"
+          REVISION="${{ inputs.revision }}"
           VARIANT="${{ matrix.variant }}"
 
           if [ -z "${REVISION}" ]; then
-            # First build: no revision suffix
             {
               echo "amd64=v${VERSION}-${VARIANT}-amd64"
               echo "arm64=v${VERSION}-${VARIANT}-arm64"
               echo "manifest=v${VERSION}-${VARIANT}"
             } >> "${GITHUB_OUTPUT}"
           else
-            # Rebuild: include revision suffix
             {
               echo "amd64=v${VERSION}-${REVISION}-${VARIANT}-amd64"
               echo "arm64=v${VERSION}-${REVISION}-${VARIANT}-arm64"
@@ -168,8 +115,8 @@ jobs:
 
       - name: Build summary
         run: |
-          VERSION="${{ needs.detect.outputs.version }}"
-          REVISION="${{ needs.detect.outputs.revision }}"
+          VERSION="${{ inputs.version }}"
+          REVISION="${{ inputs.revision }}"
           VARIANT="${{ matrix.variant }}"
           MANIFEST="${{ steps.tags.outputs.manifest }}"
 
@@ -190,3 +137,10 @@ jobs:
             echo "| Digest | \`${{ steps.manifest.outputs.digest }}\` |"
             echo "| SBOM | SPDX JSON attached |"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+  call-chart-release:
+    needs: manifest
+    uses: ./.github/workflows/chart-release.yaml
+    with:
+      opencode_version: ${{ inputs.version }}
+    secrets: inherit

@@ -6,14 +6,14 @@ on:
       - main
     paths:
       - "chart/Chart.yaml"
-  workflow_run:
-    workflows: ["Container Release"]
-    types: [completed]
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      opencode_version:
+        required: true
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.id || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.run_id || inputs.opencode_version }}
   cancel-in-progress: false
 
 permissions:
@@ -26,7 +26,6 @@ env:
 jobs:
   detect:
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       opencode_version: ${{ steps.resolve.outputs.opencode_version }}
       chart_version: ${{ steps.resolve.outputs.chart_version }}
@@ -35,14 +34,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
-
-      - name: Download version-info artifact
-        if: ${{ github.event_name == 'workflow_run' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: version-info
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read versions from Chart.yaml
         id: versions
@@ -55,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT: ${{ github.event_name }}
+          INPUT_OPENCODE_VERSION: ${{ inputs.opencode_version }}
           APP_VERSION: ${{ steps.versions.outputs.app_version }}
           CHART_VERSION: ${{ steps.versions.outputs.chart_version }}
           CHART_RELEASE_EXISTS: ${{ steps.versions.outputs.chart_release_exists }}
@@ -71,9 +63,7 @@ jobs:
               SKIP="false"
             fi
           else
-            OPENCODE_VERSION=$(grep '^version=' version-info.txt | cut -d= -f2-)
-            [ -n "${OPENCODE_VERSION}" ] || { echo "could not resolve opencode version" >&2; exit 1; }
-
+            OPENCODE_VERSION="${INPUT_OPENCODE_VERSION}"
             MAJOR=$(echo "${CHART_VERSION}" | cut -d. -f1)
             MINOR=$(echo "${CHART_VERSION}" | cut -d. -f2)
             CHART_VERSION_OUT="${MAJOR}.$((MINOR + 1)).0"
@@ -95,7 +85,7 @@ jobs:
 
   bump:
     needs: detect
-    if: ${{ github.event_name == 'workflow_run' && needs.detect.outputs.skip_release != 'true' }}
+    if: ${{ github.event_name == 'workflow_call' && needs.detect.outputs.skip_release != 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
