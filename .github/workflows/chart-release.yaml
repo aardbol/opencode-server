@@ -39,7 +39,7 @@ jobs:
         id: versions
         uses: ./.github/gha-actions/detect-versions
         with:
-          chart_dir: chart
+          chart-dir: chart
 
       - name: Resolve release plan
         id: resolve
