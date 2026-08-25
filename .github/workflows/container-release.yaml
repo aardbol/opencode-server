@@ -138,14 +138,102 @@ jobs:
             echo "| SBOM | SPDX JSON attached |"
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  call-chart-release:
+  bump:
     needs: manifest
+    runs-on: ubuntu-24.04
     permissions:
-      actions: read
       contents: write
-      packages: write
-      id-token: write
-    uses: ./.github/workflows/chart-release.yaml
-    with:
-      opencode_version: ${{ inputs.version }}
-    secrets: inherit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect current versions
+        id: current
+        uses: ./.github/gha-actions/detect-versions
+        with:
+          chart-dir: chart
+
+      - name: Check if bump needed
+        id: check
+        env:
+          TARGET_VERSION: ${{ inputs.version }}
+          CURRENT_APP_VERSION: ${{ steps.current.outputs.app_version }}
+          CHART_RELEASE_EXISTS: ${{ steps.current.outputs.chart_release_exists }}
+        run: |
+          set -euo pipefail
+
+          # Skip if appVersion already matches and chart release exists
+          if [ "${CURRENT_APP_VERSION}" = "${TARGET_VERSION}" ] && [ "${CHART_RELEASE_EXISTS}" = "true" ]; then
+            echo "Chart already released for opencode v${TARGET_VERSION}; skipping bump."
+            echo "should_bump=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Chart needs bump for opencode v${TARGET_VERSION}."
+            echo "should_bump=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Calculate new chart version
+        if: steps.check.outputs.should_bump == 'true'
+        id: chart_version
+        env:
+          CURRENT_APP_VERSION: ${{ steps.current.outputs.app_version }}
+          TARGET_OPENCODE_VERSION: ${{ inputs.version }}
+        run: |
+          # Parse current chart version
+          CHART_VERSION=$(yq .version chart/Chart.yaml)
+          CHART_MAJOR=$(echo "${CHART_VERSION}" | cut -d. -f1)
+          CHART_MINOR=$(echo "${CHART_VERSION}" | cut -d. -f2)
+          CHART_PATCH=$(echo "${CHART_VERSION}" | cut -d. -f3)
+          
+          # Parse current app version
+          CURRENT_MAJOR=$(echo "${CURRENT_APP_VERSION}" | cut -d. -f1)
+          CURRENT_MINOR=$(echo "${CURRENT_APP_VERSION}" | cut -d. -f2)
+          CURRENT_PATCH=$(echo "${CURRENT_APP_VERSION}" | cut -d. -f3)
+          
+          # Parse target opencode version
+          TARGET_MAJOR=$(echo "${TARGET_OPENCODE_VERSION}" | cut -d. -f1)
+          TARGET_MINOR=$(echo "${TARGET_OPENCODE_VERSION}" | cut -d. -f2)
+          TARGET_PATCH=$(echo "${TARGET_OPENCODE_VERSION}" | cut -d. -f3)
+          
+          # Determine what changed and apply corresponding bump
+          if [ "${TARGET_MAJOR}" != "${CURRENT_MAJOR}" ]; then
+            # Major bump in opencode → major bump in chart
+            NEW_VERSION="$((CHART_MAJOR + 1)).0.0"
+          elif [ "${TARGET_MINOR}" != "${CURRENT_MINOR}" ]; then
+            # Minor bump in opencode → minor bump in chart
+            NEW_VERSION="${CHART_MAJOR}.$((CHART_MINOR + 1)).0"
+          else
+            # Patch bump in opencode → patch bump in chart
+            NEW_VERSION="${CHART_MAJOR}.${CHART_MINOR}.$((CHART_PATCH + 1))"
+          fi
+          
+          echo "version=${NEW_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "Bumping chart from ${CHART_VERSION} to ${NEW_VERSION} (opencode ${CURRENT_APP_VERSION} → ${TARGET_OPENCODE_VERSION})"
+
+      - name: Bump chart version
+        if: steps.check.outputs.should_bump == 'true'
+        env:
+          OPENCODE_VERSION: ${{ inputs.version }}
+          CHART_VERSION: ${{ steps.chart_version.outputs.version }}
+        run: |
+          IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
+          sed -i "s/^version: .*/version: \"${CHART_VERSION}\"/" chart/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${OPENCODE_VERSION}\"/" chart/Chart.yaml
+          sed -i "s/Support for opencode v[0-9.]*/Support for opencode v${OPENCODE_VERSION}/" chart/Chart.yaml
+          sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
+
+      - name: Commit and push chart version bump
+        if: steps.check.outputs.should_bump == 'true'
+        run: |
+          git add chart/Chart.yaml chart/values.yaml
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(chart): release ${{ steps.chart_version.outputs.version }} for opencode v${{ inputs.version }}"
+            git push
+          fi

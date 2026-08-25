@@ -6,14 +6,15 @@ on:
       - main
     paths:
       - "chart/Chart.yaml"
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      opencode_version:
-        required: true
-        type: string
+      skip-e2e:
+        description: Skip e2e tests
+        type: boolean
+        default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.run_id || inputs.opencode_version }}
+  group: ${{ github.workflow }}-${{ github.run_id }}
   cancel-in-progress: false
 
 permissions:
@@ -27,100 +28,39 @@ jobs:
   detect:
     runs-on: ubuntu-24.04
     outputs:
-      opencode_version: ${{ steps.resolve.outputs.opencode_version }}
-      chart_version: ${{ steps.resolve.outputs.chart_version }}
-      skip_release: ${{ steps.resolve.outputs.skip_release }}
+      chart_version: ${{ steps.versions.outputs.chart_version }}
+      skip_release: ${{ steps.detect.outputs.skip_release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
 
-      - name: Read versions from Chart.yaml
+      - name: Detect versions
         id: versions
         uses: ./.github/gha-actions/detect-versions
         with:
           chart-dir: chart
 
-      - name: Resolve release plan
-        id: resolve
+      - name: Check if release needed
+        id: detect
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EVENT: ${{ github.event_name }}
-          INPUT_OPENCODE_VERSION: ${{ inputs.opencode_version }}
-          APP_VERSION: ${{ steps.versions.outputs.app_version }}
           CHART_VERSION: ${{ steps.versions.outputs.chart_version }}
           CHART_RELEASE_EXISTS: ${{ steps.versions.outputs.chart_release_exists }}
         run: |
           set -euo pipefail
 
-          if [ "${EVENT}" = "push" ]; then
-            OPENCODE_VERSION="${APP_VERSION}"
-            CHART_VERSION_OUT="${CHART_VERSION}"
-            if [ "${CHART_RELEASE_EXISTS}" = "true" ]; then
-              echo "Chart ${CHART_VERSION_OUT} already released; skipping."
-              SKIP="true"
-            else
-              SKIP="false"
-            fi
+          if [ "${CHART_RELEASE_EXISTS}" = "true" ]; then
+            echo "Chart ${CHART_VERSION} already released; skipping."
+            echo "skip_release=true" >> "${GITHUB_OUTPUT}"
           else
-            OPENCODE_VERSION="${INPUT_OPENCODE_VERSION}"
-            MAJOR=$(echo "${CHART_VERSION}" | cut -d. -f1)
-            MINOR=$(echo "${CHART_VERSION}" | cut -d. -f2)
-            CHART_VERSION_OUT="${MAJOR}.$((MINOR + 1)).0"
-
-            if gh release view "helm-v${CHART_VERSION_OUT}" > /dev/null 2>&1; then
-              echo "Target chart ${CHART_VERSION_OUT} already released; skipping."
-              SKIP="true"
-            else
-              SKIP="false"
-            fi
-          fi
-
-          {
-            echo "opencode_version=${OPENCODE_VERSION}"
-            echo "chart_version=${CHART_VERSION_OUT}"
-            echo "skip_release=${SKIP}"
-          } >> "${GITHUB_OUTPUT}"
-          echo "opencode=${OPENCODE_VERSION} chart=${CHART_VERSION_OUT} skip=${SKIP}"
-
-  bump:
-    needs: detect
-    if: ${{ inputs.opencode_version != '' && needs.detect.outputs.skip_release != 'true' }}
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump chart version
-        env:
-          OPENCODE_VERSION: ${{ needs.detect.outputs.opencode_version }}
-          CHART_VERSION: ${{ needs.detect.outputs.chart_version }}
-        run: |
-          IMAGE_TAG="v${OPENCODE_VERSION}-alpine"
-          sed -i "s/^version: .*/version: \"${CHART_VERSION}\"/" chart/Chart.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"${OPENCODE_VERSION}\"/" chart/Chart.yaml
-          sed -i "s/Support for opencode v[0-9.]*/Support for opencode v${OPENCODE_VERSION}/" chart/Chart.yaml
-          sed -i "s|^  tag:.*|  tag: ${IMAGE_TAG}|" chart/values.yaml
-
-      - name: Commit and push chart version bump
-        run: |
-          git add chart/Chart.yaml chart/values.yaml
-          if git diff --cached --quiet; then
-            echo "no changes to commit"
-          else
-            git commit -m "chore(chart): release ${{ needs.detect.outputs.chart_version }} for opencode v${{ needs.detect.outputs.opencode_version }}"
-            git push
+            echo "Chart ${CHART_VERSION} needs release."
+            echo "skip_release=false" >> "${GITHUB_OUTPUT}"
           fi
 
   e2e:
     needs: detect
-    if: ${{ github.event_name == 'push' && needs.detect.outputs.skip_release != 'true' }}
+    if: ${{ needs.detect.outputs.skip_release != 'true' && !inputs['skip-e2e'] }}
     name: chart e2e tests
     runs-on: ubuntu-24.04
     steps:
@@ -131,7 +71,7 @@ jobs:
 
   release:
     needs: [detect, e2e]
-    if: ${{ github.event_name == 'push' && needs.detect.outputs.skip_release != 'true' }}
+    if: ${{ always() && needs.detect.outputs.skip_release != 'true' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped') }}
     permissions:
       contents: write
       packages: write
