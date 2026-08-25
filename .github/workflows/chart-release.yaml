@@ -85,7 +85,7 @@ jobs:
 
   bump:
     needs: detect
-    if: ${{ github.event_name == 'workflow_call' && needs.detect.outputs.skip_release != 'true' }}
+    if: ${{ inputs.opencode_version != '' && needs.detect.outputs.skip_release != 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
