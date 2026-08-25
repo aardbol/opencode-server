@@ -17,6 +17,6 @@ jobs:
       actions: read
       packages: read
       security-events: write
-    uses: upcloud-tools/gha-actions/.github/workflows/trivy.yaml@c0df829cbad57268497db8cfb6174419f925b283
+    uses: upcloud-tools/gha-actions/.github/workflows/trivy.yaml@7aa82abc666a4b8107e5c5f1a6c42b49f5f42268
     with:
       image_repo: ghcr.io/${{ github.repository }}

@@ -54,7 +54,7 @@ jobs:
     name: helm validation
     permissions:
       contents: read
-    uses: upcloud-tools/gha-actions/.github/workflows/lint-helm.yaml@c0df829cbad57268497db8cfb6174419f925b283
+    uses: upcloud-tools/gha-actions/.github/workflows/lint-helm.yaml@7aa82abc666a4b8107e5c5f1a6c42b49f5f42268
     with:
       chart_dir: chart
 
